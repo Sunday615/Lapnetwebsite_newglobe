@@ -83,8 +83,8 @@ import secondfooter from "../../../components/footer/mainfooter/secondfooter.vue
 const root = ref(null);
 
 /** ✅ API */
-const EMP_API_ORIGIN = "http://localhost:3000";
-const EMP_API_URL = "http://localhost:3000/api/emp_lapnet";
+const EMP_API_ORIGIN = "http://175.0.198.10:3000";
+const EMP_API_URL = "http://175.0.198.10:3000/api/emp_lapnet";
 
 /**
  * ✅ โครงสร้างเดิม "ห้ามเปลี่ยน"

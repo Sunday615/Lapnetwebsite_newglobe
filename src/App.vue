@@ -2,7 +2,7 @@
   <router-view></router-view>
 
   <!-- ✅ Visitor Eye (bottom-left) + overlay panel -->
-  <teleport to="body">
+  <!-- <teleport to="body">
     <div class="viewerWrap" ref="viewerWrapRef">
       <div class="viewerCard" :class="{ open: viewerOpen }">
         <div class="viewerGlow" aria-hidden="true"></div>
@@ -46,7 +46,7 @@
         </div>
       </div>
     </div>
-  </teleport>
+  </teleport> -->
 </template>
 
 <style scoped>

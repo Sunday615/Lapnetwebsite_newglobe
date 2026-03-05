@@ -60,393 +60,495 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onBeforeUnmount } from "vue"
-import { gsap } from "gsap"
+import { ref, computed, nextTick, onMounted, onBeforeUnmount } from "vue";
+import { gsap } from "gsap";
 
 const props = defineProps({
-  // ✅ API
-  apiUrl: { type: String, default: "http://localhost:3000/api/announcement" },
+  // Env-only: use VITE_API_BASE_URL + this path
+  apiPath: { type: String, default: "/api/announcement" },
 
-  // ✅ fallback
+  // Fallback content
   fallbackTitle: { type: String, default: "Announcement" },
   fallbackDescription: { type: String, default: "" },
   fallbackImageAlt: { type: String, default: "Announcement image" },
 
-  // ✅ auto popup
-  autoShow: { type: Boolean, default: true },
-  //test Func
-    // debugAlwaysShow: { type: Boolean, default: false },
-})
+  // Auto popup
+  autoShow: { type: Boolean, default: true }
+});
 
-const emit = defineEmits(["primary", "closed", "loaded", "error"])
+const emit = defineEmits(["primary", "closed", "loaded", "error"]);
 
-// refs (DOM)
-const overlayEl = ref(null)
-const cardEl = ref(null)
-const closeBtnEl = ref(null)
-const mediaEl = ref(null)
-const imgEl = ref(null)
-const bodyEl = ref(null)
-const actionsEl = ref(null)
-const gridEl = ref(null)
+// -------------------- Env-only API base (Vite) --------------------
+function resolveEnvBaseUrl() {
+  // IMPORTANT: Use direct access so Vite injects import.meta.env correctly.
+  const raw = String(import.meta.env.VITE_API_BASE_URL || "").trim();
+  return raw.replace(/\/+$/, "");
+}
 
-// state
-const isOpen = ref(false)
-const announcements = ref([]) // rows from API (ทั้งหมด)
-const queue = ref([]) // รายการที่ "ถึงเวลาโชว์" แล้ว
-const queueIndex = ref(0)
-const current = computed(() => queue.value[queueIndex.value] || null)
-const imgAspect = ref("16 / 9")
+function normalizeBaseUrl(u) {
+  return String(u || "").trim().replace(/\/+$/, "");
+}
 
-// timer
-let nextCheckTimer = null
+function joinBaseAndPath(baseUrl, path) {
+  const b = normalizeBaseUrl(baseUrl);
+  const p = String(path || "");
 
-// animations
-let introTl = null
-let outroTl = null
-let floatTween = null
-let gridTween = null
-let isClosing = false
+  if (!b) return p;
 
-// ==============================
-// ✅ mapping from API table
-// image-src -> image_url (ถ้าไม่มีใช้ image)
-// title -> title
-// description -> description
-// primary button -> linkpath
-// secondary button -> close
-// timeforshow -> ชั่วโมง/1ครั้ง (3 = 3 ชั่วโมง)
-// ==============================
-const imageSrc = computed(() => {
-  const a = current.value
-  return a?.image_url || a?.image || ""
-})
-
-const imageAlt = computed(() => props.fallbackImageAlt)
-
-const titleText = computed(() => {
-  const a = current.value
-  return (a?.title || "").trim() || props.fallbackTitle
-})
-
-const descText = computed(() => {
-  const a = current.value
-  return (a?.description || "").trim() || props.fallbackDescription
-})
-
-const hasLink = computed(() => {
-  const link = String(current.value?.linkpath || "").trim()
-  return !!link
-})
-
-const primaryText = computed(() => {
-  const link = String(current.value?.linkpath || "").trim()
-  if (!link) return ""
-  try {
-    const u = new URL(link)
-    return `ອ່ານເພີ່ມ`
-  } catch {
-    return "ປິດ"
+  // Prevent double "/api"
+  // - If base ends with "/api" and path starts with "/api/..." => drop one
+  if (b.endsWith("/api") && /^\/api(\/|$)/i.test(p)) {
+    return b + p.replace(/^\/api/i, "");
   }
-})
 
-function onImgLoad(e) {
-  const img = e?.target
-  if (img?.naturalWidth && img?.naturalHeight) {
-    imgAspect.value = `${img.naturalWidth} / ${img.naturalHeight}`
+  if (!p) return b;
+  if (p.startsWith("/")) return b + p;
+  return b + "/" + p;
+}
+
+const API_BASE = normalizeBaseUrl(resolveEnvBaseUrl());
+const ASSET_BASE = API_BASE.endsWith("/api") ? API_BASE.slice(0, -4) : API_BASE;
+
+const apiUrl = computed(() => joinBaseAndPath(API_BASE, props.apiPath));
+
+// -------------------- Image URL normalization helpers --------------------
+function isLoopbackHost(hostname) {
+  const h = String(hostname || "").toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0";
+}
+
+function isLikelyAssetPath(pathname) {
+  const p = String(pathname || "");
+  return /^\/(uploads|upload|images|files|static)\b/i.test(p) || p.includes("/uploads/") || p.includes("/images/");
+}
+
+const ASSET_BASE_URL = (() => {
+  try {
+    return ASSET_BASE ? new URL(ASSET_BASE) : null;
+  } catch {
+    return null;
+  }
+})();
+
+function rewriteBadAbsoluteToEnvBase(absoluteUrl) {
+  try {
+    const u = new URL(absoluteUrl);
+    const fullPath = `${u.pathname || ""}${u.search || ""}`;
+
+    // Rewrite when backend returns localhost (wrong outside local machine)
+    if (isLoopbackHost(u.hostname)) {
+      return ASSET_BASE ? joinBaseAndPath(ASSET_BASE, fullPath) : absoluteUrl;
+    }
+
+    // Rewrite when it looks like an asset path but host does not match our env asset base
+    if (ASSET_BASE_URL && isLikelyAssetPath(u.pathname) && u.hostname !== ASSET_BASE_URL.hostname) {
+      return joinBaseAndPath(ASSET_BASE, fullPath);
+    }
+
+    return absoluteUrl;
+  } catch {
+    return absoluteUrl;
   }
 }
 
-// ==============================
-// ✅ timeforshow (ชั่วโมง) -> interval ms
-// 3 = 3 ชั่วโมง / 1 ครั้ง
-// 7 = 7 ชั่วโมง / 1 ครั้ง
-// ==============================
-function getIntervalMsFor(row) {
-  // ✅ อ่าน timeforshow จาก API และตีเป็น "ชั่วโมง"
-  const raw = row?.timeforshow
-  const n = Number(raw)
+function extractImageString(img) {
+  if (!img) return "";
+  if (typeof img === "string") return img;
 
-  // ถ้าไม่มี/ไม่ถูกต้อง -> default 3 ชั่วโมง
-  const hours = Number.isFinite(n) && n > 0 ? n : 3
-  return hours * 60 * 60 * 1000
+  // Array -> take first valid string
+  if (Array.isArray(img)) {
+    for (const it of img) {
+      const s = extractImageString(it);
+      if (s) return s;
+    }
+    return "";
+  }
+
+  // Object -> try common keys
+  const candidates = [
+    img?.url,
+    img?.path,
+    img?.src,
+    img?.image,
+    img?.file,
+    img?.filePath,
+    img?.filename,
+    img?.name,
+    img?.download_url
+  ];
+
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim()) return c;
+  }
+
+  if (img?.data) return extractImageString(img.data);
+  return "";
+}
+
+function resolveImage(img) {
+  const s = extractImageString(img).trim();
+  if (!s) return "";
+
+  // Data URL
+  if (/^data:image\//i.test(s)) return s;
+
+  // Absolute URL
+  if (/^https?:\/\//i.test(s)) return rewriteBadAbsoluteToEnvBase(s);
+
+  // Absolute path from server (e.g. "/uploads/...") => use ASSET_BASE
+  if (s.startsWith("/")) return joinBaseAndPath(ASSET_BASE, s);
+
+  // Relative path => use ASSET_BASE
+  return joinBaseAndPath(ASSET_BASE, "/" + s);
+}
+
+// refs (DOM)
+const overlayEl = ref(null);
+const cardEl = ref(null);
+const closeBtnEl = ref(null);
+const mediaEl = ref(null);
+const imgEl = ref(null);
+const bodyEl = ref(null);
+const actionsEl = ref(null);
+const gridEl = ref(null);
+
+// state
+const isOpen = ref(false);
+const announcements = ref([]); // All rows from API
+const queue = ref([]); // Rows that are due to show
+const queueIndex = ref(0);
+const current = computed(() => queue.value[queueIndex.value] || null);
+const imgAspect = ref("16 / 9");
+
+// timer
+let nextCheckTimer = null;
+
+// animations
+let introTl = null;
+let outroTl = null;
+let floatTween = null;
+let gridTween = null;
+let isClosing = false;
+
+// -------------------- Mapping from API table --------------------
+const imageSrc = computed(() => {
+  const a = current.value;
+  return resolveImage(a?.image_url || a?.image || "");
+});
+
+const imageAlt = computed(() => props.fallbackImageAlt);
+
+const titleText = computed(() => {
+  const a = current.value;
+  return (a?.title || "").trim() || props.fallbackTitle;
+});
+
+const descText = computed(() => {
+  const a = current.value;
+  return (a?.description || "").trim() || props.fallbackDescription;
+});
+
+const hasLink = computed(() => {
+  const link = String(current.value?.linkpath || "").trim();
+  return !!link;
+});
+
+const primaryText = computed(() => {
+  const link = String(current.value?.linkpath || "").trim();
+  if (!link) return "";
+  try {
+    // Validate URL
+    new URL(link);
+    return "ອ່ານເພີ່ມ";
+  } catch {
+    return "ປິດ";
+  }
+});
+
+function onImgLoad(e) {
+  const img = e?.target;
+  if (img?.naturalWidth && img?.naturalHeight) {
+    imgAspect.value = `${img.naturalWidth} / ${img.naturalHeight}`;
+  }
+}
+
+// -------------------- timeforshow (hours) -> interval ms --------------------
+function getIntervalMsFor(row) {
+  const raw = row?.timeforshow;
+  const n = Number(raw);
+
+  // If missing/invalid -> default 3 hours
+  const hours = Number.isFinite(n) && n > 0 ? n : 3;
+  return hours * 60 * 60 * 1000;
 }
 
 function getStorageKeyFor(row) {
-  const id = row?.idannouncement
-  return `announcement_last_shown_${id ?? "unknown"}`
+  const id = row?.idannouncement;
+  return `announcement_last_shown_${id ?? "unknown"}`;
 }
 
 function getLastShownMsFor(row) {
   try {
-    const v = Number(localStorage.getItem(getStorageKeyFor(row)))
-    return Number.isFinite(v) ? v : 0
+    const v = Number(localStorage.getItem(getStorageKeyFor(row)));
+    return Number.isFinite(v) ? v : 0;
   } catch {
-    return 0
+    return 0;
   }
 }
 
 function setLastShownMsFor(row, ms) {
   try {
-    localStorage.setItem(getStorageKeyFor(row), String(ms))
+    localStorage.setItem(getStorageKeyFor(row), String(ms));
   } catch {}
 }
 
 function isRowActive(row) {
-  return Number(row?.active) === 1
+  return Number(row?.active) === 1;
 }
-//test showfunc
-// function isDueToShow(row) {
-//   if (!row) return false
-//   if (!isRowActive(row)) return false
-
-//   // ✅ โหมดเทส: แสดงทันที ไม่สน timeforshow/localStorage
-//   if (props.debugAlwaysShow) return true
-
-//   const interval = getIntervalMsFor(row)
-//   const last = getLastShownMsFor(row)
-//   const now = Date.now()
-//   return !last || now - last >= interval
-// }
 
 function isDueToShow(row) {
-  if (!row) return false
-  if (!isRowActive(row)) return false
+  if (!row) return false;
+  if (!isRowActive(row)) return false;
 
-  const interval = getIntervalMsFor(row)
-  const last = getLastShownMsFor(row)
-  const now = Date.now()
+  const interval = getIntervalMsFor(row);
+  const last = getLastShownMsFor(row);
+  const now = Date.now();
 
-  return !last || now - last >= interval
+  return !last || now - last >= interval;
 }
 
-// สร้างคิว: เอาทุก announcement ที่ถึงเวลาแล้ว -> โชว์ทีละอัน (pop1 ปิด -> pop2 ต่อ)
+// Build queue: all announcements that are due -> show sequentially
 function buildQueueFromRows(rows) {
-  const arr = Array.isArray(rows) ? rows : []
-  // ✅ เรียงให้แน่นอน (ใหม่ -> เก่า)
-  arr.sort((a, b) => Number(b?.idannouncement ?? 0) - Number(a?.idannouncement ?? 0))
-  return arr.filter(isDueToShow)
+  const arr = Array.isArray(rows) ? rows : [];
+  // Stable ordering (new -> old)
+  arr.sort((a, b) => Number(b?.idannouncement ?? 0) - Number(a?.idannouncement ?? 0));
+  return arr.filter(isDueToShow);
 }
 
-// หาเวลาที่จะถึงรอบถัดไป (เพื่อ setTimeout)
+// Compute next remaining time to schedule a re-check
 function computeNextRemainingMs(rows) {
-  const now = Date.now()
-  let min = Infinity
-  let hasActive = false
+  const now = Date.now();
+  let min = Infinity;
+  let hasActive = false;
 
   for (const row of rows || []) {
-    if (!isRowActive(row)) continue
-    hasActive = true
+    if (!isRowActive(row)) continue;
+    hasActive = true;
 
-    const interval = getIntervalMsFor(row)
-    const last = getLastShownMsFor(row)
+    const interval = getIntervalMsFor(row);
+    const last = getLastShownMsFor(row);
 
-    if (!last) return 0 // ยังไม่เคยโชว์ -> ได้เลย
+    if (!last) return 0; // Never shown -> can show immediately
 
-    const elapsed = now - last
-    const remaining = interval - elapsed
-    if (remaining <= 0) return 0
-    if (remaining < min) min = remaining
+    const elapsed = now - last;
+    const remaining = interval - elapsed;
+    if (remaining <= 0) return 0;
+    if (remaining < min) min = remaining;
   }
 
-  if (!hasActive) return null
-  return min === Infinity ? null : min
+  if (!hasActive) return null;
+  return min === Infinity ? null : min;
 }
 
 function scheduleNextCheck() {
-  if (!props.autoShow) return
-  clearTimeout(nextCheckTimer)
+  if (!props.autoShow) return;
+  clearTimeout(nextCheckTimer);
 
-  const remaining = computeNextRemainingMs(announcements.value)
-  if (remaining === null) return
+  const remaining = computeNextRemainingMs(announcements.value);
+  if (remaining === null) return;
 
-  // ✅ ไม่ต้องรอขั้นต่ำ 5 วิ ก็ได้ แต่กัน spam ด้วยขั้นต่ำ 1 วิ
-  const wait = Math.max(1_000, remaining)
+  // Minimum 1s to avoid spamming
+  const wait = Math.max(1_000, remaining);
 
   nextCheckTimer = setTimeout(() => {
-    fetchAnnouncements()
-  }, wait)
+    fetchAnnouncements();
+  }, wait);
 }
 
-// ==============================
-// ✅ fetch announcements (ทั้งหมด)
-// ==============================
+// -------------------- Fetch announcements (env-only base) --------------------
 async function fetchAnnouncements() {
   try {
-    const res = await fetch(props.apiUrl, { method: "GET" })
-    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`)
-    const json = await res.json()
+    if (!API_BASE) {
+      throw new Error("Missing VITE_API_BASE_URL in .env");
+    }
 
-    const rows = Array.isArray(json?.data) ? json.data : []
-    announcements.value = rows
-    emit("loaded", rows)
+    const res = await fetch(apiUrl.value, { method: "GET", headers: { Accept: "application/json" } });
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
 
-    await nextTick()
-    tryAutoOpenQueue()
+    const json = await res.json();
+    const rows = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : [];
+
+    announcements.value = rows;
+    emit("loaded", rows);
+
+    await nextTick();
+    tryAutoOpenQueue();
   } catch (e) {
-    console.error("ANNOUNCEMENT FETCH ERROR:", e)
-    emit("error", e)
+    // Keep silent UI; report via events
+    console.error("ANNOUNCEMENT FETCH ERROR:", e);
+    emit("error", e);
   }
 }
 
-// ==============================
-// ✅ open queue logic
-// ==============================
+// -------------------- Open queue logic --------------------
 async function tryAutoOpenQueue() {
-  if (!props.autoShow) return
-  if (isOpen.value) return
+  if (!props.autoShow) return;
+  if (isOpen.value) return;
 
-  const q = buildQueueFromRows(announcements.value)
-  queue.value = q
-  queueIndex.value = 0
+  const q = buildQueueFromRows(announcements.value);
+  queue.value = q;
+  queueIndex.value = 0;
 
   if (!queue.value.length) {
-    scheduleNextCheck()
-    return
+    scheduleNextCheck();
+    return;
   }
 
-  // ✅ mark shown ให้ "ทุกตัวที่อยู่ในคิวรอบนี้" เพื่อให้ 1 รอบ/ตามชั่วโมง
-  // ป้องกัน close แล้วย้อนกลับมาเปิดซ้ำทันทีตัวเดิมในรอบเดียว
-  const now = Date.now()
-  for (const row of queue.value) setLastShownMsFor(row, now)
+  // Mark all rows in this queue as shown "now" to avoid reopening immediately in the same cycle
+  const now = Date.now();
+  for (const row of queue.value) setLastShownMsFor(row, now);
 
-  open()
+  open();
 }
 
-// ==============================
-// ✅ animations open/close/next
-// ==============================
+// -------------------- Animations open/close/next --------------------
 function onKeydown(e) {
-  if (!isOpen.value) return
-  if (e.key === "Escape") close()
+  if (!isOpen.value) return;
+  if (e.key === "Escape") close();
 }
 
 async function playIntroFull() {
-  await nextTick()
+  await nextTick();
 
-  introTl?.kill()
-  outroTl?.kill()
-  floatTween?.kill()
-  gridTween?.kill()
+  introTl?.kill();
+  outroTl?.kill();
+  floatTween?.kill();
+  gridTween?.kill();
 
-  gsap.set(overlayEl.value, { opacity: 0 })
-  gsap.set(cardEl.value, { opacity: 0, y: 46, scale: 0.985, rotateX: 6, transformPerspective: 900 })
-  gsap.set([mediaEl.value, bodyEl.value, actionsEl.value], { opacity: 0, y: 14 })
+  gsap.set(overlayEl.value, { opacity: 0 });
+  gsap.set(cardEl.value, {
+    opacity: 0,
+    y: 46,
+    scale: 0.985,
+    rotateX: 6,
+    transformPerspective: 900
+  });
+  gsap.set([mediaEl.value, bodyEl.value, actionsEl.value], { opacity: 0, y: 14 });
 
-  if (imgEl.value) gsap.set(imgEl.value, { scale: 1.12, transformOrigin: "50% 50%" })
+  if (imgEl.value) gsap.set(imgEl.value, { scale: 1.12, transformOrigin: "50% 50%" });
 
-  introTl = gsap.timeline({ defaults: { ease: "power3.out" } })
+  introTl = gsap.timeline({ defaults: { ease: "power3.out" } });
   introTl
     .to(overlayEl.value, { opacity: 1, duration: 0.28 })
     .to(cardEl.value, { opacity: 1, y: 0, rotateX: 0, scale: 1, duration: 0.55 }, "-=0.08")
     .to(mediaEl.value, { opacity: 1, y: 0, duration: 0.33 }, "-=0.25")
     .to(bodyEl.value, { opacity: 1, y: 0, duration: 0.33 }, "-=0.28")
-    .to(actionsEl.value, { opacity: 1, y: 0, duration: 0.26 }, "-=0.22")
+    .to(actionsEl.value, { opacity: 1, y: 0, duration: 0.26 }, "-=0.22");
 
-  if (imgEl.value) introTl.to(imgEl.value, { scale: 1, duration: 0.65, ease: "power2.out" }, "-=0.55")
+  if (imgEl.value) introTl.to(imgEl.value, { scale: 1, duration: 0.65, ease: "power2.out" }, "-=0.55");
 
-  floatTween = gsap.to(cardEl.value, { y: "+=8", duration: 3.2, ease: "sine.inOut", yoyo: true, repeat: -1 })
-  gridTween = gsap.to(gridEl.value, { x: "-=40", y: "+=30", duration: 8, ease: "sine.inOut", yoyo: true, repeat: -1 })
+  floatTween = gsap.to(cardEl.value, { y: "+=8", duration: 3.2, ease: "sine.inOut", yoyo: true, repeat: -1 });
+  gridTween = gsap.to(gridEl.value, { x: "-=40", y: "+=30", duration: 8, ease: "sine.inOut", yoyo: true, repeat: -1 });
 
-  closeBtnEl.value?.focus?.()
+  closeBtnEl.value?.focus?.();
 }
 
 async function playSwapToNext() {
-  introTl?.kill()
-  floatTween?.kill()
-  gridTween?.kill()
+  introTl?.kill();
+  floatTween?.kill();
+  gridTween?.kill();
 
-  const tl = gsap.timeline({ defaults: { ease: "power2.inOut" } })
-  tl.to([actionsEl.value, bodyEl.value, mediaEl.value], { opacity: 0, y: 10, duration: 0.16, stagger: 0.03 })
-  await new Promise((resolve) => tl.eventCallback("onComplete", resolve))
+  const tl = gsap.timeline({ defaults: { ease: "power2.inOut" } });
+  tl.to([actionsEl.value, bodyEl.value, mediaEl.value], { opacity: 0, y: 10, duration: 0.16, stagger: 0.03 });
+  await new Promise((resolve) => tl.eventCallback("onComplete", resolve));
 
-  queueIndex.value += 1
-  imgAspect.value = "16 / 9"
-  await nextTick()
+  queueIndex.value += 1;
+  imgAspect.value = "16 / 9";
+  await nextTick();
 
-  gsap.set([mediaEl.value, bodyEl.value, actionsEl.value], { opacity: 0, y: 14 })
-  if (imgEl.value) gsap.set(imgEl.value, { scale: 1.12, transformOrigin: "50% 50%" })
+  gsap.set([mediaEl.value, bodyEl.value, actionsEl.value], { opacity: 0, y: 14 });
+  if (imgEl.value) gsap.set(imgEl.value, { scale: 1.12, transformOrigin: "50% 50%" });
 
-  const tlIn = gsap.timeline({ defaults: { ease: "power3.out" } })
+  const tlIn = gsap.timeline({ defaults: { ease: "power3.out" } });
   tlIn
     .to(mediaEl.value, { opacity: 1, y: 0, duration: 0.28 })
     .to(bodyEl.value, { opacity: 1, y: 0, duration: 0.28 }, "-=0.22")
-    .to(actionsEl.value, { opacity: 1, y: 0, duration: 0.22 }, "-=0.20")
+    .to(actionsEl.value, { opacity: 1, y: 0, duration: 0.22 }, "-=0.20");
 
-  if (imgEl.value) tlIn.to(imgEl.value, { scale: 1, duration: 0.55, ease: "power2.out" }, "-=0.45")
+  if (imgEl.value) tlIn.to(imgEl.value, { scale: 1, duration: 0.55, ease: "power2.out" }, "-=0.45");
 
-  floatTween = gsap.to(cardEl.value, { y: "+=8", duration: 3.2, ease: "sine.inOut", yoyo: true, repeat: -1 })
-  gridTween = gsap.to(gridEl.value, { x: "-=40", y: "+=30", duration: 8, ease: "sine.inOut", yoyo: true, repeat: -1 })
+  floatTween = gsap.to(cardEl.value, { y: "+=8", duration: 3.2, ease: "sine.inOut", yoyo: true, repeat: -1 });
+  gridTween = gsap.to(gridEl.value, { x: "-=40", y: "+=30", duration: 8, ease: "sine.inOut", yoyo: true, repeat: -1 });
 
-  closeBtnEl.value?.focus?.()
+  closeBtnEl.value?.focus?.();
 }
 
 function open() {
-  if (isOpen.value) return
-  isOpen.value = true
-  window.addEventListener("keydown", onKeydown)
-  playIntroFull()
+  if (isOpen.value) return;
+  isOpen.value = true;
+  window.addEventListener("keydown", onKeydown);
+  playIntroFull();
 }
 
 function close() {
-  if (!isOpen.value || isClosing) return
+  if (!isOpen.value || isClosing) return;
 
-  const hasNext = queueIndex.value + 1 < queue.value.length
+  const hasNext = queueIndex.value + 1 < queue.value.length;
   if (hasNext) {
-    // ✅ ปิด popup 1 -> โชว์ popup 2 ต่อทันที (ไม่มี delay เพิ่มจาก timeforshow)
-    playSwapToNext()
-    return
+    // Show next item immediately (no extra delay)
+    playSwapToNext();
+    return;
   }
 
-  isClosing = true
-  introTl?.kill()
-  floatTween?.kill()
-  gridTween?.kill()
+  isClosing = true;
+  introTl?.kill();
+  floatTween?.kill();
+  gridTween?.kill();
 
-  outroTl?.kill()
+  outroTl?.kill();
   outroTl = gsap.timeline({
     defaults: { ease: "power2.inOut" },
     onComplete: () => {
-      isOpen.value = false
-      emit("closed")
-      isClosing = false
-      window.removeEventListener("keydown", onKeydown)
+      isOpen.value = false;
+      emit("closed");
+      isClosing = false;
+      window.removeEventListener("keydown", onKeydown);
 
-      queue.value = []
-      queueIndex.value = 0
+      queue.value = [];
+      queueIndex.value = 0;
 
-      // ✅ หลังปิดทั้งหมดแล้ว ค่อยตั้งเวลาเช็คตาม timeforshow (หน่วยชั่วโมง)
-      scheduleNextCheck()
-    },
-  })
+      // After closing all, schedule next check based on timeforshow
+      scheduleNextCheck();
+    }
+  });
 
   outroTl
     .to([actionsEl.value, bodyEl.value, mediaEl.value], { opacity: 0, y: 10, duration: 0.18, stagger: 0.04 })
     .to(cardEl.value, { opacity: 0, y: 30, scale: 0.985, duration: 0.22 }, "-=0.08")
-    .to(overlayEl.value, { opacity: 0, duration: 0.20 }, "-=0.10")
+    .to(overlayEl.value, { opacity: 0, duration: 0.2 }, "-=0.1");
 }
 
 function onPrimary() {
-  const link = String(current.value?.linkpath || "").trim()
-  if (!link) return
+  const link = String(current.value?.linkpath || "").trim();
+  if (!link) return;
 
-  emit("primary", link)
-  window.open(link, "_blank", "noopener,noreferrer")
-  close()
+  emit("primary", link);
+  window.open(link, "_blank", "noopener,noreferrer");
+  close();
 }
 
 onMounted(() => {
-  fetchAnnouncements()
-})
+  fetchAnnouncements();
+});
 
 onBeforeUnmount(() => {
-  window.removeEventListener("keydown", onKeydown)
-  clearTimeout(nextCheckTimer)
-  introTl?.kill()
-  outroTl?.kill()
-  floatTween?.kill()
-  gridTween?.kill()
-})
+  window.removeEventListener("keydown", onKeydown);
+  clearTimeout(nextCheckTimer);
+  introTl?.kill();
+  outroTl?.kill();
+  floatTween?.kill();
+  gridTween?.kill();
+});
 </script>
 
 <style scoped>

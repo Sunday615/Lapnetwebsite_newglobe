@@ -194,7 +194,7 @@ const swiperModules = [Autoplay, Pagination];
 
 // ✅ API
 
-const JOBS_API = 'http://localhost:3000/api/jobs-list';
+const JOBS_API = 'http://175.0.198.10:3000/api/jobs-list';
 
 // SECTION REFS FOR GSAP
 const heroRef = ref(null);

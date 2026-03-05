@@ -382,8 +382,8 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 /** ✅ API */
-const MEMBERS_API = "http://localhost:3000/api/members";
-const API_BASE = "http://localhost:3000";
+const MEMBERS_API = "http://175.0.198.10:3000/api/members";
+const API_BASE = "http://175.0.198.10:3000";
 
 /** ✅ BANKS fintech=0 */
 const banksFromApi = ref<Member[]>([]);

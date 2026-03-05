@@ -7,9 +7,48 @@ import logofootermembercardatm from "../../../components/footer/logomemberfooter
 import secondfooter from "../../../components/footer/mainfooter/secondfooter.vue";
 import main_navbar from "../../../components/miannavbar/main_navbar.vue";
 
-/** ✅ API */
-const API_BASE = "http://localhost:3000";
-const MEMBERS_API_URL = `${API_BASE}/api/members`;
+/** ✅ API (env only - Vite)
+ * Required in .env:
+ *   VITE_API_BASE_URL=http://localhost:3000
+ * 
+ */
+
+ console.log("[ENV] MODE =", import.meta.env.MODE);
+console.log("[ENV] VITE_API_BASE_URL =", import.meta.env.VITE_API_BASE_URL);
+console.log("[ENV] keys =", Object.keys(import.meta.env || {}));
+function resolveEnvBaseUrl() {
+  const raw = String(import.meta.env.VITE_API_BASE_URL || "").trim();
+  return raw.replace(/\/+$/, "");
+}
+
+function normalizeBaseUrl(u) {
+  return String(u || "").trim().replace(/\/+$/, "");
+}
+
+function joinBaseAndPath(baseUrl, path) {
+  const b = normalizeBaseUrl(baseUrl);
+  const p = String(path || "");
+
+  if (!b) return p;
+
+  // Prevent double "/api"
+  // - If base ends with "/api" and path starts with "/api/..." => drop one
+  if (b.endsWith("/api") && /^\/api(\/|$)/i.test(p)) {
+    return b + p.replace(/^\/api/i, "");
+  }
+
+  if (!p) return b;
+  if (p.startsWith("/")) return `${b}${p}`;
+  return `${b}/${p}`;
+}
+
+const API_BASE = normalizeBaseUrl(resolveEnvBaseUrl());
+
+// Asset base for images/files (strip trailing "/api" if env includes it)
+const ASSET_BASE = API_BASE.endsWith("/api") ? API_BASE.slice(0, -4) : API_BASE;
+
+// API endpoints
+const MEMBERS_API_URL = joinBaseAndPath(API_BASE, "/api/members");
 
 /** ✅ Footer logos (from API) */
 const memberLogos = ref([]);
@@ -57,7 +96,7 @@ const extractImageString = (img) => {
     img?.filePath,
     img?.filename,
     img?.name,
-    img?.download_url,
+    img?.download_url
   ];
   for (const c of candidates) {
     if (typeof c === "string" && c.trim()) return c;
@@ -67,13 +106,66 @@ const extractImageString = (img) => {
   return "";
 };
 
+// -------------------- Image URL normalization helpers --------------------
+function isLoopbackHost(hostname) {
+  const h = String(hostname || "").toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0";
+}
+
+function isLikelyAssetPath(pathname) {
+  const p = String(pathname || "");
+  return (
+    /^\/(uploads|upload|images|files|static)\b/i.test(p) ||
+    p.includes("/uploads/") ||
+    p.includes("/images/") ||
+    p.includes("/files/")
+  );
+}
+
+const ASSET_BASE_URL = (() => {
+  try {
+    return ASSET_BASE ? new URL(ASSET_BASE) : null;
+  } catch {
+    return null;
+  }
+})();
+
+function rewriteBadAbsoluteToEnvBase(absoluteUrl) {
+  try {
+    const u = new URL(absoluteUrl);
+    const fullPath = `${u.pathname || ""}${u.search || ""}`;
+
+    // Rewrite when backend returns localhost (wrong outside local machine)
+    if (isLoopbackHost(u.hostname)) {
+      return ASSET_BASE ? joinBaseAndPath(ASSET_BASE, fullPath) : absoluteUrl;
+    }
+
+    // Rewrite when it looks like an asset path but host does not match our env asset base
+    if (ASSET_BASE_URL && isLikelyAssetPath(u.pathname) && u.hostname !== ASSET_BASE_URL.hostname) {
+      return joinBaseAndPath(ASSET_BASE, fullPath);
+    }
+
+    return absoluteUrl;
+  } catch {
+    return absoluteUrl;
+  }
+}
+
 const resolveImage = (img) => {
   const s = extractImageString(img).trim();
   if (!s) return "";
+
+  // Data URL
   if (/^data:image\//i.test(s)) return s;
-  if (/^https?:\/\//i.test(s)) return s;
-  if (s.startsWith("/")) return `${API_BASE}${s}`;
-  return `${API_BASE}/${s}`;
+
+  // Absolute URL
+  if (/^https?:\/\//i.test(s)) return rewriteBadAbsoluteToEnvBase(s);
+
+  // Absolute path from server (e.g. "/uploads/..") => use ASSET_BASE
+  if (s.startsWith("/")) return joinBaseAndPath(ASSET_BASE, s);
+
+  // Relative path (e.g. "uploads/..") => use ASSET_BASE
+  return joinBaseAndPath(ASSET_BASE, "/" + s);
 };
 
 const extractLinkString = (v) => {
@@ -159,7 +251,6 @@ const buildLayer1FromColors = (primary, secondary) => {
   return `linear-gradient(${p}, ${s}) 50% 50%/calc(100% - 15px) calc(100% - 15px) no-repeat`;
 };
 
-
 const FILTER_CODE_ORDER = ["atm_inqury", "atm-transfer", "atm-transfer-card", "atm-cash-withdraw"];
 
 const normKey = (s) =>
@@ -170,30 +261,27 @@ const normKey = (s) =>
     .replace(/[_-]/g, "");
 
 const FILTER_ALIASES = {
-  "atm_inqury": [
+  atm_inqury: [
     "atm_inqury",
     "atm_inquiry",
     "atminquiry",
     "balanceinquiry",
     "balance_inquiry",
-  
-    "ກວດສອບຍອດເງິນຂ້າມທະນາຄານຜ່ານຕູ້atm",
+    "ກວດສອບຍອດເງິນຂ້າມທະນາຄານຜ່ານຕູ້atm"
   ],
   "atm-transfer": [
     "atm-transfer",
     "atm_transfer",
     "atmtransfer",
     "transfer",
-    // Lao label
-    "ໂອນເງິນຂ້າມທະນາຄານຜ່ານຕູ້atm",
+    "ໂອນເງິນຂ້າມທະນາຄານຜ່ານຕູ້atm"
   ],
   "atm-transfer-card": [
     "atm-transfer-card",
     "atm_transfer_card",
     "atmtransfercard",
     "transfercard",
-    // Lao label
-    "ໂອນເງິນຂ້າມທະນາຄານຜ່ານໂທລະສັບດ້ວຍເລກໜ້າບັດ",
+    "ໂອນເງິນຂ້າມທະນາຄານຜ່ານໂທລະສັບດ້ວຍເລກໜ້າບັດ"
   ],
   "atm-cash-withdraw": [
     "atm-cash-withdraw",
@@ -201,9 +289,8 @@ const FILTER_ALIASES = {
     "atmcashwithdraw",
     "cashwithdraw",
     "withdraw",
-    // Lao label
-    "ຖອນເງິນສົດຂ້າມທະນາຄານຜ່ານຕູ້atm",
-  ],
+    "ຖອນເງິນສົດຂ້າມທະນາຄານຜ່ານຕູ້atm"
+  ]
 };
 
 const isItemEnabled = (obj) => {
@@ -218,14 +305,12 @@ const isItemEnabled = (obj) => {
     obj.available,
     obj.allow,
     obj.value,
-    obj.flag,
+    obj.flag
   ];
 
-  // ถ้าไม่มี flag ใด ๆ ถือว่า "มี item" = ใช้งานได้
   const hasAnyFlag = candidates.some((v) => v !== undefined);
   if (!hasAnyFlag) return true;
 
-  // ถ้ามี flag อย่างน้อยหนึ่งอัน ใช้ logic truthy แบบ common
   return candidates.some((v) => v === true || v === 1 || v === "1" || v === "true" || v === "Y" || v === "y");
 };
 
@@ -242,7 +327,6 @@ const detectFilterCode = (raw) => {
 };
 
 const buildFiltersFromApi = (item) => {
-  // ✅ ใช้ "เฉพาะ" CardATM.items (รองรับตัวพิมพ์/เคสต่าง ๆ นิดหน่อย)
   const rawItems =
     item?.CardATM?.items ??
     item?.CardAtm?.items ??
@@ -254,7 +338,6 @@ const buildFiltersFromApi = (item) => {
   const set = new Set();
 
   for (const it of arr) {
-    // item อาจเป็น string หรือ object
     if (typeof it === "string") {
       const code = detectFilterCode(it);
       if (code) set.add(code);
@@ -271,7 +354,6 @@ const buildFiltersFromApi = (item) => {
     }
   }
 
-  // จัดเรียงให้ออกมาตาม order เดิม
   return FILTER_CODE_ORDER.filter((c) => set.has(c));
 };
 
@@ -279,6 +361,7 @@ async function fetchJson(url) {
   const res = await fetch(url, {
     method: "GET",
     cache: "no-store",
+    headers: { Accept: "application/json" }
   });
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
@@ -309,7 +392,7 @@ const mapApiMemberToCard = (item) => {
       "LinkWebsite",
       "linkWebsite",
       "urlWeb",
-      "UrlWeb",
+      "UrlWeb"
     ])
   );
 
@@ -346,7 +429,6 @@ const mapApiMemberToCard = (item) => {
   const layer4 = "linear-gradient(172deg, transparent 0%, #e0aa4e 100%)";
   const layer5 = "linear-gradient(270deg, transparent 0%, #f9f295 100%)";
 
-  // ✅ filter จริงจาก CardATM.items เท่านั้น
   const filters = buildFiltersFromApi(item);
 
   return {
@@ -362,11 +444,15 @@ const mapApiMemberToCard = (item) => {
     layer3,
     layer4,
     layer5,
-    filters,
+    filters
   };
 };
 
 async function loadMembersFromApi() {
+  if (!API_BASE) {
+    throw new Error("Missing VITE_API_BASE_URL in .env");
+  }
+
   const json = await fetchJson(MEMBERS_API_URL);
 
   const list = Array.isArray(json)
@@ -379,7 +465,6 @@ async function loadMembersFromApi() {
     ? json.result
     : [];
 
-  // ✅ only memberATM = 1 (เหมือนเดิม)
   const onlyAtm = list.filter((it) => {
     const v = it?.memberATM ?? it?.MemberATM ?? it?.member_atm ?? it?.atmMember ?? 0;
     return v === 1 || v === "1" || v === true;
@@ -387,7 +472,6 @@ async function loadMembersFromApi() {
 
   const mapped = onlyAtm.map(mapApiMemberToCard);
 
-  // ✅ sort by membersid so memberId=1 always on page 1
   mapped.sort((a, b) => {
     const A = a.memberId ?? 999999;
     const B = b.memberId ?? 999999;
@@ -401,7 +485,7 @@ async function loadMembersFromApi() {
     .filter((m) => !!m.image)
     .map((m) => ({
       src: m.image,
-      alt: m.title || m.bankCode || "Member",
+      alt: m.title || m.bankCode || "Member"
     }));
 }
 
@@ -417,7 +501,7 @@ const filterOptions = [
   { label: "ກວດສອບຍອດເງິນຂ້າມທະນາຄານຜ່ານຕູ້ ATM", value: "atm_inqury" },
   { label: "ໂອນເງິນຂ້າມທະນາຄານຜ່ານຕູ້ ATM", value: "atm-transfer" },
   { label: "ໂອນເງິນຂ້າມທະນາຄານຜ່ານໂທລະສັບດ້ວຍເລກໜ້າບັດ", value: "atm-transfer-card" },
-  { label: "ຖອນເງິນສົດຂ້າມທະນາຄານຜ່ານຕູ້ ATM", value: "atm-cash-withdraw" },
+  { label: "ຖອນເງິນສົດຂ້າມທະນາຄານຜ່ານຕູ້ ATM", value: "atm-cash-withdraw" }
 ];
 
 const filteredMembers = computed(() => {
@@ -431,13 +515,9 @@ const filteredMembers = computed(() => {
     const matchesSearch = !q || title.includes(q) || subtitle.includes(q);
     if (!matchesSearch) return false;
 
-    // ไม่เลือก checkbox => แสดงทั้งหมด (ตาม search)
     if (!activeFilters.length) return true;
-
-    // เลือก "all" => แสดงทั้งหมด
     if (activeFilters.includes("all")) return true;
 
-    // ✅ FILTER จริง: bank ต้องมี service ครบทุกตัวที่เลือก (AND)
     const memberFilters = m.filters || [];
     return activeFilters.every((f) => memberFilters.includes(f));
   });
@@ -591,7 +671,12 @@ onMounted(async () => {
 
           <div class="filterChecks">
             <label v-for="opt in filterOptions" :key="opt.value" class="filterCheck">
-              <input type="checkbox" :value="opt.value" v-model="selectedFilters" @change="onFilterChange(opt.value, $event)" />
+              <input
+                type="checkbox"
+                :value="opt.value"
+                v-model="selectedFilters"
+                @change="onFilterChange(opt.value, $event)"
+              />
               <span class="checkFake"><span class="checkTick">✓</span></span>
               <span class="checkLabel">{{ opt.label }}</span>
             </label>

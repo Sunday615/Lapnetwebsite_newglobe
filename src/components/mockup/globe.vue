@@ -8,7 +8,9 @@
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import * as THREE from "three";
 import gsap from "gsap";
-
+// console.log("[ENV] MODE =", import.meta.env.MODE);
+// console.log("[ENV] VITE_API_BASE_URL =", import.meta.env.VITE_API_BASE_URL);
+// console.log("[ENV] keys =", Object.keys(import.meta.env || {}));
 type Endpoint = {
   idmember?: number; // ✅ keep idmember for sorting / debugging
   name?: string;
@@ -25,9 +27,45 @@ type ProductPair = {
   color?: string;
 };
 
-// ✅ Force fetch from this API (as you requested)
-const API_BASE = "http://localhost:3000";
-const MEMBERS_API_URL = `${API_BASE}/api/members`;
+// -------------------- Env-only API base (Vite) --------------------
+// Required in .env (Vite):
+//   VITE_API_BASE_URL=http://localhost:3000
+function resolveEnvBaseUrl(): string {
+  // IMPORTANT: Use direct access so Vite injects import.meta.env correctly.
+  const raw = String(import.meta.env.VITE_API_BASE_URL || "").trim();
+  return raw.replace(/\/+$/, "");
+}
+
+function normalizeBaseUrl(u: string): string {
+  return String(u || "").trim().replace(/\/+$/, "");
+}
+
+function joinBaseAndPath(baseUrl: string, path: string): string {
+  const b = normalizeBaseUrl(baseUrl);
+  const p = String(path || "");
+
+  if (!b) return p;
+
+  // Prevent double "/api"
+  // - If base ends with "/api" and path starts with "/api/..." => drop one
+  if (b.endsWith("/api") && /^\/api(\/|$)/i.test(p)) {
+    return b + p.replace(/^\/api/i, "");
+  }
+
+  // Normal join
+  if (!p) return b;
+  if (p.startsWith("/")) return b + p;
+  return b + "/" + p;
+}
+
+const API_BASE = resolveEnvBaseUrl();
+
+// Asset base for images/files (strip trailing "/api" if env includes it)
+const ASSET_BASE = API_BASE.endsWith("/api") ? API_BASE.slice(0, -4) : API_BASE;
+
+// ✅ API endpoint: /api/members (from env base only)
+const MEMBERS_API_URL = joinBaseAndPath(API_BASE, "/api/members");
+
 
 // ✅ fallback nodes (match 22)
 const DEFAULT_NODES: Endpoint[] = Array.from({ length: 22 }).map((_, i) => ({
@@ -229,26 +267,85 @@ const extractImageString = (img: any): string => {
   return "";
 };
 
+// -------------------- Image URL normalization helpers --------------------
+function isLoopbackHost(hostname: string) {
+  const h = String(hostname || "").toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0";
+}
+
+function isLikelyAssetPath(pathname: string) {
+  const p = String(pathname || "");
+  // Expand patterns a bit (uploads/images/files/static)
+  return (
+    /^\/(uploads|upload|images|files|static)\b/i.test(p) ||
+    p.includes("/uploads/") ||
+    p.includes("/images/") ||
+    p.includes("/files/")
+  );
+}
+
+const ASSET_BASE_URL = (() => {
+  try {
+    return ASSET_BASE ? new URL(ASSET_BASE) : null;
+  } catch {
+    return null;
+  }
+})();
+
+function rewriteBadAbsoluteToEnvBase(absoluteUrl: string) {
+  try {
+    const u = new URL(absoluteUrl);
+
+    // Keep path + query (important)
+    const fullPath = `${u.pathname || ""}${u.search || ""}`;
+
+    // Rewrite when backend returns localhost (wrong outside local machine)
+    if (isLoopbackHost(u.hostname)) {
+      return ASSET_BASE ? joinBaseAndPath(ASSET_BASE, fullPath) : absoluteUrl;
+    }
+
+    // Rewrite when it looks like an asset path but host does not match our env asset base
+    if (ASSET_BASE_URL && isLikelyAssetPath(u.pathname) && u.hostname !== ASSET_BASE_URL.hostname) {
+      return joinBaseAndPath(ASSET_BASE, fullPath);
+    }
+
+    return absoluteUrl;
+  } catch {
+    return absoluteUrl;
+  }
+}
+
 const resolveImage = (img: any) => {
   const s = extractImageString(img).trim();
   if (!s) return "";
+
+  // Data URL
   if (/^data:image\//i.test(s)) return s;
-  if (/^https?:\/\//i.test(s)) return s;
-  if (s.startsWith("/")) return `${API_BASE}${s}`;
-  return `${API_BASE}/${s}`;
+
+  // Absolute URL
+  if (/^https?:\/\//i.test(s)) {
+    // Fix "localhost" or wrong-host absolute URLs returned by backend
+    return rewriteBadAbsoluteToEnvBase(s);
+  }
+
+  // Absolute path from server (e.g. "/uploads/..") => use ASSET_BASE
+  if (s.startsWith("/")) return joinBaseAndPath(ASSET_BASE, s);
+
+  // Relative path (e.g. "uploads/..") => use ASSET_BASE
+  return joinBaseAndPath(ASSET_BASE, "/" + s);
 };
 
 const fallbackLogoById = (id: number) => {
   return `/logos/logo-${String(id).padStart(2, "0")}.png`;
 };
 
-// ✅ IMPORTANT: support image_url first (your server returns it)
+// ✅ IMPORTANT: prefer "image" (relative) over "image_url" (can be wrong like localhost)
 const pickMemberImage = (item: any) => {
   return (
-    item?.image_url ?? // ✅ absolute from API
+    item?.image ?? // ✅ correct server-relative path from your JSON sample
+    item?.image_url ?? // may be wrong (localhost), but resolveImage() rewrites it if needed
     item?.Image_url ??
     item?.imageUrl ??
-    item?.image ??
     item?.logo ??
     item?.logo_img ??
     item?.member_logo ??
@@ -275,14 +372,40 @@ const normalizeMemberToNode = (item: any) => {
 };
 
 async function fetchJson(url: string) {
-  const res = await fetch(url, { method: "GET" });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+
+  const ct = String(res.headers.get("content-type") || "").toLowerCase();
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`API error (${res.status}) ${res.url}\n${text.slice(0, 200)}`);
+  }
+
+  if (!ct.includes("application/json")) {
+    const text = await res.text().catch(() => "");
+    const head = text.slice(0, 140).replace(/\s+/g, " ");
+    throw new Error(
+      `Non-JSON response (${res.status}) from ${res.url}\ncontent-type=${ct || "unknown"}\nhead=${head}`
+    );
+  }
+
   return res.json();
 }
 
-// ✅ fetch all member logos (22)
 async function loadMembersNodes() {
   try {
+    if (!API_BASE) {
+      throw new Error(
+        "[Globe] Missing VITE_API_BASE_URL. Put it in project root .env and restart Vite."
+      );
+    }
+
+    console.log("[Globe] API_BASE =", API_BASE);
+    console.log("[Globe] MEMBERS_API_URL =", MEMBERS_API_URL);
+
     const json: any = await fetchJson(MEMBERS_API_URL);
 
     const list =
@@ -296,12 +419,10 @@ async function loadMembersNodes() {
       .map(normalizeMemberToNode)
       .filter(Boolean) as Endpoint[];
 
-    // ✅ sort by idmember so id=1 always visible and stable order
     mapped.sort((a, b) => (a.idmember ?? 0) - (b.idmember ?? 0));
 
-    // ✅ take ALL 22 (or whatever memberLimit is)
     const limitRaw = props.memberLimit ?? 22;
-    const limit = limitRaw <= 0 ? mapped.length : limitRaw; // allow "0" = no limit
+    const limit = limitRaw <= 0 ? mapped.length : limitRaw;
     membersNodes.value = mapped.slice(0, Math.max(1, limit));
   } catch (e) {
     console.error("Load members nodes failed:", e);
@@ -943,7 +1064,9 @@ onMounted(async () => {
   const circleTex = makeCircleTexture(64);
   disposers.push(() => circleTex.dispose());
 
-  const loader = new THREE.TextureLoader();
+const loader = new THREE.TextureLoader();
+// Allow cross-origin textures (server must send CORS headers for images)
+(loader as any).setCrossOrigin?.("anonymous");
   const urls = Array.from(
     new Set([hub.value.logo, ...nodes.value.map((n) => n.logo)].filter(Boolean))
   );

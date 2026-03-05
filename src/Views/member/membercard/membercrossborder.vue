@@ -7,9 +7,44 @@ import membercard from "../../../components/membercard/membercard.vue";
 import footermembercrossborder from "../../../components/footer/logomemberfooter/logofootermembercrossborder.vue";
 import secondfooter from "../../../components/footer/mainfooter/secondfooter.vue";
 
-/** ✅ API */
-const API_BASE = "http://localhost:3000";
-const MEMBERS_API_URL = `${API_BASE}/api/members`;
+/** ✅ API (env only - Vite)
+ * Required in .env:
+ *   VITE_API_BASE_URL=http://localhost:3000
+ */
+function resolveEnvBaseUrl() {
+  // IMPORTANT: Use direct access so Vite injects import.meta.env correctly.
+  const raw = String(import.meta.env.VITE_API_BASE_URL || "").trim();
+  return raw.replace(/\/+$/, "");
+}
+
+function normalizeBaseUrl(u) {
+  return String(u || "").trim().replace(/\/+$/, "");
+}
+
+function joinBaseAndPath(baseUrl, path) {
+  const b = normalizeBaseUrl(baseUrl);
+  const p = String(path || "");
+
+  if (!b) return p;
+
+  // Prevent double "/api"
+  // - If base ends with "/api" and path starts with "/api/..." => drop one
+  if (b.endsWith("/api") && /^\/api(\/|$)/i.test(p)) {
+    return b + p.replace(/^\/api/i, "");
+  }
+
+  if (!p) return b;
+  if (p.startsWith("/")) return `${b}${p}`;
+  return `${b}/${p}`;
+}
+
+const API_BASE = normalizeBaseUrl(resolveEnvBaseUrl());
+
+// Asset base for images/files (strip trailing "/api" if env includes it)
+const ASSET_BASE = API_BASE.endsWith("/api") ? API_BASE.slice(0, -4) : API_BASE;
+
+// Members endpoint
+const MEMBERS_API_URL = joinBaseAndPath(API_BASE, "/api/members");
 
 /** ✅ Footer logos (from API) */
 const memberLogos = ref([]);
@@ -59,7 +94,7 @@ const extractImageString = (img) => {
     img?.filePath,
     img?.filename,
     img?.name,
-    img?.download_url,
+    img?.download_url
   ];
   for (const c of candidates) {
     if (typeof c === "string" && c.trim()) return c;
@@ -69,13 +104,65 @@ const extractImageString = (img) => {
   return "";
 };
 
+// -------------------- Image URL normalization helpers --------------------
+function isLoopbackHost(hostname) {
+  const h = String(hostname || "").toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0";
+}
+
+function isLikelyAssetPath(pathname) {
+  const p = String(pathname || "");
+  return (
+    /^\/(uploads|upload|images|files|static)\b/i.test(p) ||
+    p.includes("/uploads/") ||
+    p.includes("/images/") ||
+    p.includes("/files/")
+  );
+}
+
+const ASSET_BASE_URL = (() => {
+  try {
+    return ASSET_BASE ? new URL(ASSET_BASE) : null;
+  } catch {
+    return null;
+  }
+})();
+
+function rewriteBadAbsoluteToEnvBase(absoluteUrl) {
+  try {
+    const u = new URL(absoluteUrl);
+    const fullPath = `${u.pathname || ""}${u.search || ""}`;
+
+    // Rewrite when backend returns localhost (wrong outside local machine)
+    if (isLoopbackHost(u.hostname)) {
+      return ASSET_BASE ? joinBaseAndPath(ASSET_BASE, fullPath) : absoluteUrl;
+    }
+
+    // Rewrite when it looks like an asset path but host does not match our env asset base
+    if (ASSET_BASE_URL && isLikelyAssetPath(u.pathname) && u.hostname !== ASSET_BASE_URL.hostname) {
+      return joinBaseAndPath(ASSET_BASE, fullPath);
+    }
+
+    return absoluteUrl;
+  } catch {
+    return absoluteUrl;
+  }
+}
+
 const resolveImage = (img) => {
   const s = extractImageString(img).trim();
   if (!s) return "";
+
   if (/^data:image\//i.test(s)) return s;
-  if (/^https?:\/\//i.test(s)) return s;
-  if (s.startsWith("/")) return `${API_BASE}${s}`;
-  return `${API_BASE}/${s}`;
+
+  // Absolute URL
+  if (/^https?:\/\//i.test(s)) return rewriteBadAbsoluteToEnvBase(s);
+
+  // Absolute path from server (e.g. "/uploads/..") => use ASSET_BASE
+  if (s.startsWith("/")) return joinBaseAndPath(ASSET_BASE, s);
+
+  // Relative path (e.g. "uploads/..") => use ASSET_BASE
+  return joinBaseAndPath(ASSET_BASE, "/" + s);
 };
 
 const extractLinkString = (v) => {
@@ -176,7 +263,7 @@ const CROSS_FILTER_ALIASES = {
   "th-la": ["th-la", "th_la", "thla", "thailaos", "thai-laos", "ໄທ ສະແກນ ລາວ"],
   "la-th": ["la-th", "la_th", "lath", "laosthai", "laos-thai", "ລາວ ສະແກນ ໄທ"],
   "vn-la": ["vn-la", "vn_la", "vnla", "vietnamlaos", "vietnam-laos", "ຫວຽດນາມ ສະແກນ ລາວ"],
-  "cn-la": ["cn-la", "cn_la", "cnla", "chinalaos", "china-laos", "ຈີນ ສະແກນ ລາວ"],
+  "cn-la": ["cn-la", "cn_la", "cnla", "chinalaos", "china-laos", "ຈີນ ສະແກນ ລາວ"]
 };
 
 const isItemEnabled = (obj) => {
@@ -191,7 +278,7 @@ const isItemEnabled = (obj) => {
     obj.available,
     obj.allow,
     obj.value,
-    obj.flag,
+    obj.flag
   ];
 
   const hasAnyFlag = candidates.some((v) => v !== undefined);
@@ -238,7 +325,7 @@ const readItemsLike = (v) => {
 };
 
 const buildCrossBorderFiltersFromApi = (item) => {
-  // ✅ ใช้เฉพาะ CrossBorder.items (รองรับชื่อ field ที่มักเจอ)
+  // Use only CrossBorder.items (supports common field variants)
   const raw =
     item?.CrossBorder ??
     item?.crossBorder ??
@@ -281,7 +368,16 @@ const buildCrossBorderFiltersFromApi = (item) => {
    FETCH
    ========================= */
 async function fetchJson(url) {
-  const res = await fetch(url, { method: "GET", cache: "no-store" });
+  if (!API_BASE) {
+    throw new Error("Missing VITE_API_BASE_URL in .env");
+  }
+
+  const res = await fetch(url, {
+    method: "GET",
+    cache: "no-store",
+    headers: { Accept: "application/json" }
+  });
+
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
@@ -320,7 +416,7 @@ const mapApiMemberToCard = (item) => {
       "LinkWebsite",
       "linkWebsite",
       "urlWeb",
-      "UrlWeb",
+      "UrlWeb"
     ])
   );
 
@@ -356,7 +452,7 @@ const mapApiMemberToCard = (item) => {
   const layer4 = "linear-gradient(172deg, transparent 0%, #e0aa4e 100%)";
   const layer5 = "linear-gradient(270deg, transparent 0%, #f9f295 100%)";
 
-  // ✅ filter จาก CrossBorder.items เท่านั้น
+  // Filters from CrossBorder.items only
   const filters = buildCrossBorderFiltersFromApi(item);
 
   return {
@@ -372,7 +468,7 @@ const mapApiMemberToCard = (item) => {
     layer3,
     layer4,
     layer5,
-    filters,
+    filters
   };
 };
 
@@ -389,7 +485,7 @@ async function loadMembersFromApi() {
     ? json.result
     : [];
 
-  // ✅ only membercrossborder = 1
+  // Only membercrossborder = 1
   const onlyCrossBorder = list.filter((it) => {
     const v =
       it?.membercrossborder ??
@@ -411,7 +507,7 @@ async function loadMembersFromApi() {
 
   const mapped = onlyCrossBorder.map(mapApiMemberToCard);
 
-  // ✅ sort by memberId so id=1 first
+  // Sort by memberId so id=1 first
   mapped.sort((a, b) => {
     const A = a.memberId ?? 999999;
     const B = b.memberId ?? 999999;
@@ -425,7 +521,7 @@ async function loadMembersFromApi() {
     .filter((m) => !!m.image)
     .map((m) => ({
       src: m.image,
-      alt: m.title || m.bankCode || "Member",
+      alt: m.title || m.bankCode || "Member"
     }));
 }
 
@@ -446,49 +542,49 @@ const filterOptions = [
     value: "kh-la",
     flags: [
       { code: "kh", alt: "Cambodia flag" },
-      { code: "la", alt: "Laos flag" },
-    ],
+      { code: "la", alt: "Laos flag" }
+    ]
   },
   {
     label: "ລາວ ສະແກນ ກຳປູເຈຍ ",
     value: "la-kh",
     flags: [
       { code: "la", alt: "Laos flag" },
-      { code: "kh", alt: "Cambodia flag" },
-    ],
+      { code: "kh", alt: "Cambodia flag" }
+    ]
   },
   {
     label: "ໄທ ສະແກນ ລາວ ",
     value: "th-la",
     flags: [
       { code: "th", alt: "Thailand flag" },
-      { code: "la", alt: "Laos flag" },
-    ],
+      { code: "la", alt: "Laos flag" }
+    ]
   },
   {
     label: "ລາວ ສະແກນ ໄທ ",
     value: "la-th",
     flags: [
       { code: "la", alt: "Laos flag" },
-      { code: "th", alt: "Thailand flag" },
-    ],
+      { code: "th", alt: "Thailand flag" }
+    ]
   },
   {
     label: "ຫວຽດນາມ ສະແກນ ລາວ ",
     value: "vn-la",
     flags: [
       { code: "vn", alt: "Vietnam flag" },
-      { code: "la", alt: "Laos flag" },
-    ],
+      { code: "la", alt: "Laos flag" }
+    ]
   },
   {
     label: "ຈີນ ສະແກນ ລາວ ",
     value: "cn-la",
     flags: [
       { code: "cn", alt: "China flag" },
-      { code: "la", alt: "Laos flag" },
-    ],
-  },
+      { code: "la", alt: "Laos flag" }
+    ]
+  }
 ];
 
 // select-all helpers (unchanged behavior)
@@ -500,7 +596,7 @@ const isAllChecked = computed({
   },
   set(checked) {
     selectedFilters.value = checked ? [...realFilterValues.value] : [];
-  },
+  }
 });
 
 // Filtered list (search + filters -> pagination)
@@ -518,7 +614,7 @@ const filteredMembers = computed(() => {
     if (!activeFilters.length) return true;
 
     const memberFilters = m.filters || [];
-    return activeFilters.every((f) => memberFilters.includes(f)); // ✅ AND
+    return activeFilters.every((f) => memberFilters.includes(f)); // AND
   });
 });
 
@@ -750,19 +846,18 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* (styles unchanged) */
 .flagArrow {
   font-size: 12px;
   margin: 0 4px;
   opacity: 0.85;
 }
-
 .flagWrap {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   margin-right: 8px;
 }
-
 .flagIcon {
   width: 25px;
   height: 20px;
@@ -770,7 +865,6 @@ onMounted(async () => {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
   object-fit: cover;
 }
-
 .membercardcontainer {
   width: 90%;
   margin: 0 auto;
@@ -779,63 +873,49 @@ onMounted(async () => {
   gap: 18px;
   height: auto;
 }
-
-/* Left section (cards) */
 .leftsection {
   width: 55%;
   height: auto;
 }
-
-/* Right aside container (42% of parent, full height) */
 .rightcontainer {
   width: 42%;
   height: 750px;
   display: flex;
   align-items: stretch;
 }
-
-/* Tech-style panel */
 .filterPanel {
   width: 100%;
   height: 100%;
   padding: 18px 20px;
   border-radius: 20px;
-
   background: linear-gradient(145deg, #ffffff 0%, #e7f0ff 35%, #f6fbff 100%);
   border: 1px solid rgba(58, 123, 255, 0.5);
   box-shadow: 0 14px 40px rgba(10, 32, 94, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.7);
-
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
-
-/* Header */
 .filterHeader {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
-
 .filterTitle {
   font-size: var(--fs-lg);
   font-weight: 700;
   color: #0a1f55;
   margin: 0;
 }
-
 .filterSubtitle {
   margin: 3px 0 0;
   font-size: var(--fs-sm);
   color: #5a6f9f;
 }
-
 .filterBadge img {
   width: 30px;
   height: auto;
 }
-
 .filterBadge {
   font-size: 11px;
   padding: 6px 10px;
@@ -849,26 +929,20 @@ onMounted(async () => {
   box-shadow: 0 0 12px rgba(58, 123, 255, 0.75);
   align-self: center;
 }
-
-/* Search box */
 .searchBox {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 20px 32px;
   border-radius: 999px;
-
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(102, 153, 255, 0.7);
   box-shadow: 0 6px 16px rgba(9, 30, 66, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.9);
-
   backdrop-filter: blur(10px);
 }
-
 .searchIcon {
   font-size: var(--fs-md);
 }
-
 .searchInput {
   flex: 1;
   border: none;
@@ -877,12 +951,9 @@ onMounted(async () => {
   font-size: var(--fs-xs);
   color: #10275b;
 }
-
 .searchInput::placeholder {
   color: #9aaad9;
 }
-
-/* Divider line */
 .filterDivider {
   height: 1px;
   width: 100%;
@@ -895,39 +966,31 @@ onMounted(async () => {
     rgba(46, 94, 255, 0) 100%
   );
 }
-
-/* Checkbox group */
 .filterGroup {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-
 .filterGroupHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-
 .filterGroupTitle {
   font-size: var(--fs-md);
   font-weight: 600;
   color: #12306a;
 }
-
 .filterGroupHint {
   font-size: 11px;
   color: #7d90c7;
 }
-
 .filterChecks {
   display: flex;
   flex-direction: column;
   gap: 25px;
   margin-top: 30px;
 }
-
-/* Checkbox item */
 .filterCheck {
   display: flex;
   align-items: center;
@@ -937,12 +1000,9 @@ onMounted(async () => {
   color: #21345f;
   user-select: none;
 }
-
-/* hide default checkbox */
 .filterCheck input {
   display: none;
 }
-
 .checkFake {
   width: 28px;
   height: 28px;
@@ -955,59 +1015,42 @@ onMounted(async () => {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9), 0 4px 10px rgba(44, 93, 255, 0.35);
   transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.12s ease;
 }
-
 .checkTick {
   font-size: 12px;
   opacity: 0;
   transform: scale(0.3);
   transition: opacity 0.12s ease, transform 0.12s ease;
 }
-
-/* checked state */
 .filterCheck input:checked + .checkFake {
   background: linear-gradient(135deg, #1a57ff, #47b3ff);
   border-color: #ffffff;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7), 0 6px 14px rgba(43, 100, 255, 0.5);
   transform: translateY(-1px);
 }
-
 .filterCheck input:checked + .checkFake .checkTick {
   opacity: 1;
   transform: scale(1);
   color: #ffffff;
 }
-
 .checkLabel {
   font-size: var(--fs-base);
   display: inline-flex;
   align-items: center;
 }
-
-/* Footer info */
 .filterFooter {
   margin-top: auto;
   padding-top: 4px;
   border-top: 1px dashed rgba(148, 179, 255, 0.7);
 }
-
 .filterFooterText {
   font-size: var(--fs-sm);
   color: #1e3567;
   margin: 6px 0 0;
 }
-
 .filterFooterHighlight {
   font-weight: 700;
   color: #275eff;
 }
-
-.filterFooterSub {
-  font-size: 11px;
-  color: #8090c2;
-  margin: 2px 0 0;
-}
-
-/* Grid membercard */
 .cardsgrid {
   display: grid;
   gap: 18px;
@@ -1015,33 +1058,24 @@ onMounted(async () => {
   align-items: stretch;
   overflow: hidden;
 }
-
-/* Pagination */
 .paginationcontainer {
   width: 40%;
   margin: 0 auto;
   height: auto;
   border: none;
 }
-
-/* Blue Gradient Pagination */
 .pagerWrap {
   margin-top: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-
   padding: 10px 14px;
   border-radius: 999px;
-
-  background: #00123d;
   background: linear-gradient(95deg, rgba(0, 18, 61, 1) 0%, rgba(0, 51, 171, 1) 35%, rgba(6, 0, 120, 1) 100%);
   border: 1px solid rgba(152, 189, 255, 0.8);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
-
-/* Prev / Next buttons */
 .pagerBtn {
   display: inline-flex;
   gap: 8px;
@@ -1051,105 +1085,82 @@ onMounted(async () => {
   border-radius: 999px;
   cursor: pointer;
   user-select: none;
-
   font-size: 13px;
   letter-spacing: 0.2px;
-
   color: #e9f3ff;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(184, 210, 255, 0.7);
-
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(6px);
   transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, opacity 0.16s ease;
 }
-
 .pagerBtn:hover {
   transform: translateY(-1px);
   background: rgba(255, 255, 255, 0.16);
   box-shadow: 0 7px 16px rgba(0, 0, 0, 0.35);
 }
-
 .pagerBtn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
-
 .chev {
   font-size: 16px;
   line-height: 1;
 }
-
-/* Pills container */
 .pagerPills {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 4px 6px;
   border-radius: 999px;
-
   background: rgba(1, 8, 30, 0.55);
   border: 1px solid rgba(167, 199, 255, 0.6);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
-
-/* Page pills */
 .pagePill {
   width: 34px;
   height: 34px;
   border-radius: 999px;
   cursor: pointer;
-
   font-size: 13px;
   font-weight: 500;
-
   color: #dbe8ff;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(179, 204, 255, 0.7);
-
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
-  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, color 0.16s ease,
-    border-color 0.16s ease;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
 }
-
 .pagePill:hover {
   transform: translateY(-1px);
   background: rgba(255, 255, 255, 0.18);
   border-color: #c4d6ff;
   box-shadow: 0 5px 12px rgba(0, 0, 0, 0.45);
 }
-
 .pagePill.active {
   background: #ffffff;
   color: #0b2e7e;
   border-color: #ffffff;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), 0 0 0 3px rgba(116, 170, 255, 0.6);
 }
-
-/* Responsive tweak */
 @media (max-width: 900px) {
   .membercardcontainer {
     flex-direction: column;
     width: 95%;
   }
-
   .rightcontainer {
     width: 100%;
     height: auto;
     order: 1;
   }
-
   .leftsection {
     width: 100%;
     order: 2;
   }
-
   .paginationcontainer {
     width: 100%;
   }
-
   .pagerWrap {
     flex-wrap: wrap;
     padding: 10px 10px;

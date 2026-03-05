@@ -3,16 +3,12 @@
     <div class="card-header">
       <h2 class="card-title">ຂ່າວສານ ແລະ ກິດຈະກຳ</h2>
       <div class="titlelapnet">
-        <img
-          src="/logolapnet/logolapnet.PNG"
-          style="width: 30px; height: 30px"
-          alt=""
-        />
+        <img src="/logolapnet/logolapnet.PNG" style="width: 30px; height: 30px" alt="" />
         <p class="card-subtitle">Lao Nationnal Payment Network CO., LTD</p>
       </div>
     </div>
 
-    <!-- ✅ Render Swiper only after data is ready (fix autoplay not starting until drag) -->
+    <!-- Render Swiper only after data is ready (fix autoplay not starting until drag) -->
     <Swiper
       v-if="images.length"
       :key="swiperKey"
@@ -97,25 +93,60 @@ import { useRouter } from "vue-router";
 
 const router = useRouter();
 
-// ✅ Swiper modules (DON'T inline array in template)
+/** Swiper modules (do not inline array in template) */
 const swiperModules = [Autoplay, Navigation, Pagination];
 
-// ✅ Swiper instance + controls refs
+/** Swiper instance + controls refs */
 const swiperInstance = ref(null);
 const prevBtn = ref(null);
 const nextBtn = ref(null);
 const paginationEl = ref(null);
 
-// ✅ Force re-mount swiper when data loaded (helps autoplay/navigation init)
+/** Force re-mount swiper when data loaded (helps autoplay/navigation init) */
 const swiperKey = ref(0);
 
-const API_BASE = "http://localhost:3000";
-const NEWS_API_URL = "http://localhost:3000/api/news";
-
-// ✅ data for swiper
+/** Swiper data */
 const images = ref([]);
 
-// ✅ click -> send idnews to BlogDetail (route param id)
+// -------------------- Env-only API base (Vite) --------------------
+// Required in .env (Vite):
+//   VITE_API_BASE_URL=http://localhost:3000
+function resolveEnvBaseUrl() {
+  const raw = String(import.meta.env.VITE_API_BASE_URL || "").trim();
+  return raw.replace(/\/+$/, "");
+}
+
+function normalizeBaseUrl(u) {
+  return String(u || "").trim().replace(/\/+$/, "");
+}
+
+function joinBaseAndPath(baseUrl, path) {
+  const b = normalizeBaseUrl(baseUrl);
+  const p = String(path || "");
+
+  if (!b) return p;
+
+  // Prevent double "/api"
+  // - If base ends with "/api" and path starts with "/api/..." => drop one
+  if (b.endsWith("/api") && /^\/api(\/|$)/i.test(p)) {
+    return b + p.replace(/^\/api/i, "");
+  }
+
+  if (!p) return b;
+  if (p.startsWith("/")) return `${b}${p}`;
+  return `${b}/${p}`;
+}
+
+/** API base from env only */
+const API_BASE = normalizeBaseUrl(resolveEnvBaseUrl());
+
+/** Asset base for images/files (strip trailing /api for assets) */
+const ASSET_BASE = API_BASE.endsWith("/api") ? API_BASE.slice(0, -4) : API_BASE;
+
+/** News endpoint: /api/news */
+const NEWS_API_URL = joinBaseAndPath(API_BASE, "/api/news");
+
+/** Click -> send idnews to BlogDetail (route param id) */
 const goToBlogDetail = (idnews) => {
   router.push({
     name: "BlogDetail",
@@ -145,13 +176,40 @@ const formatDDMMYY = (input) => {
   return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${String(d.getFullYear()).slice(-2)}`;
 };
 
+function isLoopbackHost(hostname) {
+  const h = String(hostname || "").toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0";
+}
+
+function rewriteBadAbsoluteToEnvBase(absoluteUrl) {
+  try {
+    const u = new URL(absoluteUrl);
+    const fullPath = `${u.pathname || ""}${u.search || ""}`;
+
+    // Rewrite when backend returns localhost (wrong outside local machine)
+    if (isLoopbackHost(u.hostname) && ASSET_BASE) {
+      return joinBaseAndPath(ASSET_BASE, fullPath);
+    }
+
+    return absoluteUrl;
+  } catch {
+    return absoluteUrl;
+  }
+}
+
 const resolveImage = (url) => {
   if (!url) return "";
   const s = String(url).trim();
   if (!s) return "";
-  if (/^https?:\/\//i.test(s)) return s;
-  if (s.startsWith("/")) return `${API_BASE}${s}`;
-  return `${API_BASE}/${s}`;
+
+  // Absolute URL
+  if (/^https?:\/\//i.test(s)) return rewriteBadAbsoluteToEnvBase(s);
+
+  // Server absolute path (e.g. "/uploads/..") => use ASSET_BASE
+  if (s.startsWith("/")) return joinBaseAndPath(ASSET_BASE, s);
+
+  // Relative path (e.g. "uploads/..") => use ASSET_BASE
+  return joinBaseAndPath(ASSET_BASE, "/" + s);
 };
 
 const safeTime = (dt) => {
@@ -160,14 +218,7 @@ const safeTime = (dt) => {
 };
 
 const normalizeNews = (item) => {
-  const id =
-    item?.news_id ??
-    item?.idnews ??
-    item?.id_news ??
-    item?.id ??
-    item?._id ??
-    null;
-
+  const id = item?.news_id ?? item?.idnews ?? item?.id_news ?? item?.id ?? item?._id ?? null;
   if (id == null) return null;
 
   const title = String(item?.header_news ?? item?.title ?? "-").trim() || "-";
@@ -182,24 +233,16 @@ const normalizeNews = (item) => {
     "";
   const date = formatDDMMYY(dateTime);
 
-  return {
-    id,
-    src,
-    alt: title,
-    title,
-    date,
-    dateTime
-  };
+  return { id, src, alt: title, title, date, dateTime };
 };
 
-// ✅ Fix: re-init navigation/pagination + restart autoplay after data is ready
+/** Re-init navigation/pagination + restart autoplay after data is ready */
 const reInitSwiper = async () => {
   await nextTick();
 
   const swiper = swiperInstance.value;
   if (!swiper) return;
 
-  // ✅ ensure Swiper knows our navigation/pagination elements
   if (prevBtn.value && nextBtn.value) {
     swiper.params.navigation = swiper.params.navigation || {};
     swiper.params.navigation.prevEl = prevBtn.value;
@@ -220,7 +263,6 @@ const reInitSwiper = async () => {
     swiper.pagination?.update?.();
   }
 
-  // ✅ dynamic slides + loop fixes
   swiper.update();
 
   if (swiper.params.loop) {
@@ -229,7 +271,6 @@ const reInitSwiper = async () => {
     swiper.update();
   }
 
-  // ✅ START autoplay (this is the main bug fix)
   swiper.autoplay?.stop?.();
   swiper.autoplay?.start?.();
 };
@@ -241,26 +282,36 @@ const onSwiper = (swiper) => {
 
 const fetchNews = async () => {
   try {
-    const res = await fetch(NEWS_API_URL);
+    if (!API_BASE) {
+      throw new Error("Missing VITE_API_BASE_URL in .env");
+    }
+
+    const res = await fetch(NEWS_API_URL, {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
 
     const json = await res.json();
     const list =
-      Array.isArray(json) ? json :
-      Array.isArray(json?.data) ? json.data :
-      Array.isArray(json?.news) ? json.news :
-      Array.isArray(json?.result) ? json.result :
-      [];
+      Array.isArray(json)
+        ? json
+        : Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json?.news)
+            ? json.news
+            : Array.isArray(json?.result)
+              ? json.result
+              : [];
 
     const mapped = list.map(normalizeNews).filter(Boolean);
     mapped.sort((a, b) => safeTime(b.dateTime) - safeTime(a.dateTime));
 
     images.value = mapped.slice(0, 6);
 
-    // ✅ force remount once after data loaded so autoplay starts immediately
+    // Force Swiper to re-mount after data load
     swiperKey.value += 1;
 
-    // if swiper already exists, re-init
     await reInitSwiper();
   } catch (e) {
     console.error("Fetch news failed:", e);
@@ -270,7 +321,6 @@ const fetchNews = async () => {
 
 onMounted(fetchNews);
 
-// ✅ if images change later, make sure autoplay/nav still works
 watch(
   () => images.value.length,
   async () => {
@@ -342,7 +392,7 @@ watch(
   height: 60vh;
   border-radius: 1.1rem;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(56, 189, 248, 0.9));
-  overflow: hidden; /* ✅ FIX: clip overlay/glow inside card border */
+  overflow: hidden;
 }
 
 .card-inner {
@@ -355,8 +405,7 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
-
-  overflow: hidden; /* ✅ FIX: prevent ::before white overlay from spilling out */
+  overflow: hidden;
 }
 
 .card-inner::before {

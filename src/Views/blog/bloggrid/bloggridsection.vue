@@ -160,8 +160,67 @@
 import { gsap } from "gsap";
 import secondfooter from "../../../components/footer/mainfooter/secondfooter.vue";
 
-const NEWS_API = "http://localhost:3000/api/news";
-const API_BASE = "http://localhost:3000";
+// -------------------- Resolve API base from env ONLY --------------------
+// Supports both Vite (import.meta.env.VITE_*) and Vue CLI (process.env.VUE_APP_*)
+function resolveEnvBaseUrl() {
+  try {
+    // Vite
+    const viteVal =
+      typeof import.meta !== "undefined" &&
+      import.meta &&
+      import.meta.env &&
+      (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "");
+
+    if (viteVal) return String(viteVal).trim();
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    // Vue CLI
+    const vueCliVal =
+      typeof process !== "undefined" &&
+      process &&
+      process.env &&
+      (process.env.VUE_APP_API_BASE_URL || process.env.VUE_APP_API_BASE || "");
+
+    if (vueCliVal) return String(vueCliVal).trim();
+  } catch (e) {
+    // ignore
+  }
+
+  return "";
+}
+
+function normalizeBaseUrl(u) {
+  return String(u || "").trim().replace(/\/+$/, "");
+}
+
+// Join base + path, and auto-fix duplicate "/api" when base already ends with "/api"
+function joinBaseAndPath(baseUrl, path) {
+  const b = normalizeBaseUrl(baseUrl);
+  const p = String(path || "");
+
+  if (!b) return p;
+
+  // If base already includes /api and path starts with /api/..., remove one /api
+  if (b.endsWith("/api") && /^\/api(\/|$)/i.test(p)) {
+    return b + p.replace(/^\/api/i, "");
+  }
+
+  if (!p) return b;
+  if (p.startsWith("/")) return b + p;
+  return b + "/" + p;
+}
+
+// ✅ API base from env only
+const API_BASE = normalizeBaseUrl(resolveEnvBaseUrl());
+
+// ✅ If env accidentally includes "/api", keep API calls correct but use ASSET_BASE for images
+const ASSET_BASE = API_BASE.endsWith("/api") ? API_BASE.slice(0, -4) : API_BASE;
+
+// ✅ News endpoint: /api/news
+const NEWS_API_URL = joinBaseAndPath(API_BASE, "/api/news");
 
 export default {
   name: "BlogGrid",
@@ -173,10 +232,10 @@ export default {
   data() {
     return {
       currentPage: 1,
-      pageSize: 9, // 3 columns x 3 rows
+      pageSize: 9,
       searchQuery: "",
       selectedYear: "all",
-      selectedMonth: "all", // 1–12 or "all"
+      selectedMonth: "all",
       loading: false,
       error: null,
 
@@ -195,32 +254,27 @@ export default {
         { value: 12, label: "December" }
       ],
 
-      // ✅ posts from API (mapped to same shape as BlogDetail uses)
       posts: []
     };
   },
 
   created() {
-    // ✅ sync current page from query (when coming back from BlogDetail)
     const pageFromQuery = Number(this.$route?.query?.page);
     if (pageFromQuery && pageFromQuery > 0) {
       this.currentPage = pageFromQuery;
     }
 
-    // ✅ load from API
     this.fetchNews();
   },
 
   computed: {
-    // Unique years available in posts
     availableYears() {
       const years = this.posts
         .map((post) => this.getPostYear(post))
         .filter((y) => Number.isFinite(y));
-      return [...new Set(years)].sort((a, b) => b - a); // newest first
+      return [...new Set(years)].sort((a, b) => b - a);
     },
 
-    // All filters + sort by date (newest first)
     filteredPosts() {
       const query = this.searchQuery.trim().toLowerCase();
 
@@ -232,21 +286,12 @@ export default {
           const year = dateObj.getFullYear();
           const month = dateObj.getMonth() + 1;
 
-          // Filter by year
-          if (this.selectedYear !== "all" && year !== Number(this.selectedYear)) {
-            return false;
-          }
+          if (this.selectedYear !== "all" && year !== Number(this.selectedYear)) return false;
+          if (this.selectedMonth !== "all" && month !== Number(this.selectedMonth)) return false;
 
-          // Filter by month
-          if (this.selectedMonth !== "all" && month !== Number(this.selectedMonth)) {
-            return false;
-          }
-
-          // Search filter
           if (!query) return true;
 
           const monthLabel = this.months.find((m) => m.value === month)?.label || "";
-
           const haystack = [
             post.title,
             post.category,
@@ -277,7 +322,6 @@ export default {
   },
 
   watch: {
-    // ✅ if URL page changes (back/forward), sync currentPage
     "$route.query.page"(val) {
       const p = Number(val);
       if (p && p > 0 && p !== this.currentPage) {
@@ -285,7 +329,6 @@ export default {
       }
     },
 
-    // keep query param updated
     currentPage(newVal) {
       if (this.$router) {
         const q = { ...this.$route.query, page: newVal };
@@ -297,7 +340,6 @@ export default {
       }
     },
 
-    // when search/filter changes: reset to page 1 + animate
     searchQuery() {
       this.currentPage = 1;
       this.$nextTick(() => this.animateCards());
@@ -313,27 +355,24 @@ export default {
   },
 
   mounted() {
-    // On first load, just animate (no auto scroll to top)
     this.animateCards();
   },
 
   methods: {
-    /**
-     * ✅ Fetch API: /api/news
-     * ✅ Mapping (same as BlogDetail):
-     * - header_news -> title
-     * - category -> category
-     * - tags -> tags (optional)
-     * - description_news -> excerpt (grid) / content (detail)
-     * - hero_img -> image
-     * - date_time (or datetime/created_at) -> dateTime + date + readTime
-     */
     async fetchNews() {
       this.loading = true;
       this.error = null;
 
+      // Fail fast if env missing
+      if (!API_BASE) {
+        this.posts = [];
+        this.loading = false;
+        this.error = "Missing API base in .env (VITE_API_BASE_URL / VUE_APP_API_BASE_URL).";
+        return;
+      }
+
       try {
-        const res = await fetch(NEWS_API, { method: "GET" });
+        const res = await fetch(NEWS_API_URL, { method: "GET" });
         if (!res.ok) throw new Error(`Request failed (${res.status})`);
 
         const json = await res.json();
@@ -345,7 +384,6 @@ export default {
               ? json.news
               : [];
 
-        // ✅ IMPORTANT: keep the real API id (no idx+1 fallback unless completely missing)
         const mapped = arr
           .map((raw) => this.normalizeNewsItem(raw))
           .filter((p) => p && p.id != null && String(p.id).trim() !== "" && p.title);
@@ -365,13 +403,7 @@ export default {
     },
 
     normalizeNewsItem(raw) {
-      const id =
-        raw?.id ??
-        raw?.news_id ??
-        raw?.id_news ??
-        raw?.idnews ??
-        raw?._id ??
-        null;
+      const id = raw?.id ?? raw?.news_id ?? raw?.id_news ?? raw?.idnews ?? raw?._id ?? null;
 
       const title = String(raw?.header_news ?? raw?.title ?? "").trim();
       const category = String(raw?.category ?? "").trim();
@@ -387,11 +419,10 @@ export default {
 
       const image = this.resolveImage(raw?.hero_img ?? raw?.image ?? "");
 
-      // excerpt from description_news (strip html + shorten)
-      const desc = raw?.description_news ?? raw?.description ?? raw?.short_desc ?? raw?.excerpt ?? "";
+      const desc =
+        raw?.description_news ?? raw?.description ?? raw?.short_desc ?? raw?.excerpt ?? "";
       const excerpt = this.makeExcerpt(desc);
 
-      // optional tags (for search)
       const tags = Array.isArray(raw?.tags)
         ? raw.tags
         : typeof raw?.tags === "string"
@@ -427,14 +458,15 @@ export default {
       const s = String(u).trim();
       if (!s) return "";
       if (/^https?:\/\//i.test(s)) return s;
+
+      // Use ASSET_BASE (no /api) for static files
       try {
-        return new URL(s, API_BASE).toString();
+        return new URL(s, ASSET_BASE || API_BASE || window.location.origin).toString();
       } catch {
         return s;
       }
     },
 
-    // ✅ Prefer dateTime (raw) for sorting/parsing
     parsePostDate(post) {
       const raw = post?.dateTime || "";
       return new Date(String(raw).trim());
@@ -450,7 +482,6 @@ export default {
       return d.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
     },
 
-    // ✅ readTime = “recent” based on datetime (same style as BlogDetail)
     formatRelativeTime(dateInput) {
       const d = new Date(dateInput);
       if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "";
@@ -476,7 +507,6 @@ export default {
       window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
     },
 
-    // Scroll to top ONLY when pagination is clicked
     nextPage() {
       if (this.currentPage < this.totalPages) {
         this.currentPage += 1;

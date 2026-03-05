@@ -169,7 +169,7 @@ const apiIdByLocalId = {
   9: 20,
 };
 
-const API_URL = "http://localhost:3000/api/boarddirector";
+const API_URL = "http://175.0.198.10:3000/api/boarddirector";
 let fetchAbortController = null;
 
 /** ✅ สร้างโครง layout แบบเดิม (structure เดิม) แต่ข้อมูลว่าง รอ API เติม */
@@ -204,7 +204,7 @@ function getApiOrigin() {
   try {
     return new URL(API_URL).origin;
   } catch {
-    return "http://localhost:3000";
+    return "http://175.0.198.10:3000";
   }
 }
 

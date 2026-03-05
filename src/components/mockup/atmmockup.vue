@@ -1,7 +1,7 @@
 <template>
   <section>
     <atmmockup  
-    :nodes="nodes"
+  
   hubLogo="/logolapnet/fullcircle.png"
   hubName="Lapnet"
   :hubLat="18"

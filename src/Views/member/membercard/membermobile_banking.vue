@@ -7,9 +7,44 @@ import membercard from "../../../components/membercard/membercard.vue";
 import logofootermembercardmobilebanking from "../../../components/footer/logomemberfooter/logofootermembercardmobilebanking.vue";
 import secondfooter from "../../../components/footer/mainfooter/secondfooter.vue";
 
-/** ✅ API */
-const API_BASE = "http://localhost:3000";
-const MEMBERS_API_URL = `${API_BASE}/api/members`;
+/** ✅ API (env only - Vite)
+ * Required in .env:
+ *   VITE_API_BASE_URL=http://localhost:3000
+ */
+function resolveEnvBaseUrl() {
+  // IMPORTANT: Use direct access so Vite injects import.meta.env correctly.
+  const raw = String(import.meta.env.VITE_API_BASE_URL || "").trim();
+  return raw.replace(/\/+$/, "");
+}
+
+function normalizeBaseUrl(u) {
+  return String(u || "").trim().replace(/\/+$/, "");
+}
+
+function joinBaseAndPath(baseUrl, path) {
+  const b = normalizeBaseUrl(baseUrl);
+  const p = String(path || "");
+
+  if (!b) return p;
+
+  // Prevent double "/api"
+  // - If base ends with "/api" and path starts with "/api/..." => drop one
+  if (b.endsWith("/api") && /^\/api(\/|$)/i.test(p)) {
+    return b + p.replace(/^\/api/i, "");
+  }
+
+  if (!p) return b;
+  if (p.startsWith("/")) return `${b}${p}`;
+  return `${b}/${p}`;
+}
+
+const API_BASE = normalizeBaseUrl(resolveEnvBaseUrl());
+
+// Asset base for images/files (strip trailing "/api" if env includes it)
+const ASSET_BASE = API_BASE.endsWith("/api") ? API_BASE.slice(0, -4) : API_BASE;
+
+// Members endpoint
+const MEMBERS_API_URL = joinBaseAndPath(API_BASE, "/api/members");
 
 /** ✅ Footer logos (from API) */
 const memberLogos = ref([]);
@@ -59,7 +94,7 @@ const extractImageString = (img) => {
     img?.filePath,
     img?.filename,
     img?.name,
-    img?.download_url,
+    img?.download_url
   ];
   for (const c of candidates) {
     if (typeof c === "string" && c.trim()) return c;
@@ -69,13 +104,65 @@ const extractImageString = (img) => {
   return "";
 };
 
+// -------------------- Image URL normalization helpers --------------------
+function isLoopbackHost(hostname) {
+  const h = String(hostname || "").toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0";
+}
+
+function isLikelyAssetPath(pathname) {
+  const p = String(pathname || "");
+  return (
+    /^\/(uploads|upload|images|files|static)\b/i.test(p) ||
+    p.includes("/uploads/") ||
+    p.includes("/images/") ||
+    p.includes("/files/")
+  );
+}
+
+const ASSET_BASE_URL = (() => {
+  try {
+    return ASSET_BASE ? new URL(ASSET_BASE) : null;
+  } catch {
+    return null;
+  }
+})();
+
+function rewriteBadAbsoluteToEnvBase(absoluteUrl) {
+  try {
+    const u = new URL(absoluteUrl);
+    const fullPath = `${u.pathname || ""}${u.search || ""}`;
+
+    // Rewrite when backend returns localhost (wrong outside local machine)
+    if (isLoopbackHost(u.hostname)) {
+      return ASSET_BASE ? joinBaseAndPath(ASSET_BASE, fullPath) : absoluteUrl;
+    }
+
+    // Rewrite when it looks like an asset path but host does not match our env asset base
+    if (ASSET_BASE_URL && isLikelyAssetPath(u.pathname) && u.hostname !== ASSET_BASE_URL.hostname) {
+      return joinBaseAndPath(ASSET_BASE, fullPath);
+    }
+
+    return absoluteUrl;
+  } catch {
+    return absoluteUrl;
+  }
+}
+
 const resolveImage = (img) => {
   const s = extractImageString(img).trim();
   if (!s) return "";
+
   if (/^data:image\//i.test(s)) return s;
-  if (/^https?:\/\//i.test(s)) return s;
-  if (s.startsWith("/")) return `${API_BASE}${s}`;
-  return `${API_BASE}/${s}`;
+
+  // Absolute URL
+  if (/^https?:\/\//i.test(s)) return rewriteBadAbsoluteToEnvBase(s);
+
+  // Absolute path from server (e.g. "/uploads/..") => use ASSET_BASE
+  if (s.startsWith("/")) return joinBaseAndPath(ASSET_BASE, s);
+
+  // Relative path (e.g. "uploads/..") => use ASSET_BASE
+  return joinBaseAndPath(ASSET_BASE, "/" + s);
 };
 
 const extractLinkString = (v) => {
@@ -179,8 +266,7 @@ const MOBILE_FILTER_ALIASES = {
     "account",
     "accountnumber",
     "transferaccount",
-    // Lao label (exact from your edit page)
-    "ໂອນເງິນຂ້າມທະນາຄານເທິງມືຖືນຳໃຊ້ເລກບັນຊີ",
+    "ໂອນເງິນຂ້າມທະນາຄານເທິງມືຖືນຳໃຊ້ເລກບັນຊີ"
   ],
   "transfer-by-qrcode": [
     "transfer-by-qrcode",
@@ -188,11 +274,10 @@ const MOBILE_FILTER_ALIASES = {
     "transferbyqrcode",
     "qrcode",
     "transferqr",
-    // Lao label
     "ໂອນເງິນຂ້າມທະນາຄານຜ່ານqrcode",
     "ໂອນເງິນຂ້າມທະນາຄານຜ່ານqr code",
     "ໂອນເງິນຂ້າມທະນາຄານຜ່ານqr",
-    "ໂອນເງິນຂ້າມທະນາຄານຜ່ານ QR CODE",
+    "ໂອນເງິນຂ້າມທະນາຄານຜ່ານ QR CODE"
   ],
   "payment-by-qrcode": [
     "payment-by-qrcode",
@@ -201,10 +286,9 @@ const MOBILE_FILTER_ALIASES = {
     "paybyqrcode",
     "scanpay",
     "paymentqr",
-    // Lao label
     "ຊຳລະຄ່າສິນຄ້າແລະບໍລິການໂດຍສະແກນqrcode",
-    "ຊຳລະຄ່າສິນຄ້າ ແລະ ບໍລິການ ໂດຍສະແກນ QR CODE",
-  ],
+    "ຊຳລະຄ່າສິນຄ້າ ແລະ ບໍລິການ ໂດຍສະແກນ QR CODE"
+  ]
 };
 
 const isItemEnabled = (obj) => {
@@ -219,10 +303,9 @@ const isItemEnabled = (obj) => {
     obj.available,
     obj.allow,
     obj.value,
-    obj.flag,
+    obj.flag
   ];
 
-  // if no flags -> assume enabled
   const hasAnyFlag = candidates.some((v) => v !== undefined);
   if (!hasAnyFlag) return true;
 
@@ -267,7 +350,7 @@ const readItemsLike = (v) => {
 };
 
 const buildMobileFiltersFromApi = (item) => {
-  // ✅ ONLY Mbbanking.items / Mbbankking.items
+  // ONLY Mbbanking.items / Mbbankking.items
   const raw =
     item?.Mbbanking ??
     item?.Mbbankking ??
@@ -307,7 +390,16 @@ const buildMobileFiltersFromApi = (item) => {
    FETCH
    ========================= */
 async function fetchJson(url) {
-  const res = await fetch(url, { method: "GET", cache: "no-store" });
+  if (!API_BASE) {
+    throw new Error("Missing VITE_API_BASE_URL in .env");
+  }
+
+  const res = await fetch(url, {
+    method: "GET",
+    cache: "no-store",
+    headers: { Accept: "application/json" }
+  });
+
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
@@ -315,7 +407,9 @@ async function fetchJson(url) {
 const mapApiMemberToCard = (item) => {
   const memberId = pickMemberId(item);
 
-  const bankCode = String(item?.Bankcode ?? item?.BankCode ?? item?.bankcode ?? item?.bankCode ?? item?.bank_code ?? "").trim();
+  const bankCode = String(
+    item?.Bankcode ?? item?.BankCode ?? item?.bankcode ?? item?.bankCode ?? item?.bank_code ?? ""
+  ).trim();
 
   const title = String(
     item?.BanknameLA ?? item?.bankNameLA ?? item?.banknameLA ?? item?.bank_name_la ?? item?.title ?? ""
@@ -344,7 +438,7 @@ const mapApiMemberToCard = (item) => {
       "LinkWebsite",
       "linkWebsite",
       "urlWeb",
-      "UrlWeb",
+      "UrlWeb"
     ])
   );
 
@@ -380,7 +474,7 @@ const mapApiMemberToCard = (item) => {
   const layer4 = "linear-gradient(172deg, transparent 0%, #e0aa4e 100%)";
   const layer5 = "linear-gradient(270deg, transparent 0%, #f9f295 100%)";
 
-  // ✅ filter from Mbbanking.items / Mbbankking.items only
+  // Filters from Mbbanking/Mbbankking only
   const filters = buildMobileFiltersFromApi(item);
 
   return {
@@ -396,7 +490,7 @@ const mapApiMemberToCard = (item) => {
     layer3,
     layer4,
     layer5,
-    filters,
+    filters
   };
 };
 
@@ -413,7 +507,7 @@ async function loadMembersFromApi() {
     ? json.result
     : [];
 
-  // ✅ only membermobile = 1
+  // Only membermobile = 1
   const onlyMobile = list.filter((it) => {
     const v =
       it?.membermobile ??
@@ -429,7 +523,7 @@ async function loadMembersFromApi() {
 
   const mapped = onlyMobile.map(mapApiMemberToCard);
 
-  // ✅ sort by memberId so id=1 first
+  // Sort by memberId so id=1 first
   mapped.sort((a, b) => {
     const A = a.memberId ?? 999999;
     const B = b.memberId ?? 999999;
@@ -443,7 +537,7 @@ async function loadMembersFromApi() {
     .filter((m) => !!m.image)
     .map((m) => ({
       src: m.image,
-      alt: m.title || m.bankCode || "Member",
+      alt: m.title || m.bankCode || "Member"
     }));
 }
 
@@ -460,7 +554,7 @@ const filterOptions = [
   { label: "ເລືອກທັງໝົດ", value: "all" },
   { label: "ໂອນເງິນຂ້າມທະນາຄານເທິງມືຖືນຳໃຊ້ເລກບັນຊີ", value: "transfer-by-number" },
   { label: "ໂອນເງິນຂ້າມທະນາຄານຜ່ານ QR CODE", value: "transfer-by-qrcode" },
-  { label: "ຊຳລະຄ່າສິນຄ້າ ແລະ ບໍລິການ ໂດຍສະແກນ QR CODE", value: "payment-by-qrcode" },
+  { label: "ຊຳລະຄ່າສິນຄ້າ ແລະ ບໍລິການ ໂດຍສະແກນ QR CODE", value: "payment-by-qrcode" }
 ];
 
 const realFilterValues = computed(() => filterOptions.filter((o) => o.value !== "all").map((o) => o.value));
@@ -471,7 +565,7 @@ const isAllChecked = computed({
   },
   set(checked) {
     selectedFilters.value = checked ? [...realFilterValues.value] : [];
-  },
+  }
 });
 
 const filteredMembers = computed(() => {
@@ -485,13 +579,9 @@ const filteredMembers = computed(() => {
     const matchesSearch = !q || title.includes(q) || subtitle.includes(q);
     if (!matchesSearch) return false;
 
-    // no filters -> show all (by search)
     if (!activeFilters.length) return true;
-
-    // if "all" exists (optional safety) -> show all
     if (activeFilters.includes("all")) return true;
 
-    // ✅ AND logic (must have all selected services)
     const memberFilters = m.filters || [];
     return activeFilters.every((f) => memberFilters.includes(f));
   });
@@ -546,7 +636,6 @@ watch(searchQuery, () => {
 watch(selectedFilters, () => {
   currentPage.value = 1;
 });
-
 watch(currentPage, async () => {
   await nextTick();
   animateCards();
@@ -574,7 +663,6 @@ onMounted(async () => {
   animateCards();
 });
 </script>
-
 <template>
   <main_navbar
     title="ສະມາຊິກລະບົບຊຳລະຂ້າມທະນາຄານເທິງມືຖື"

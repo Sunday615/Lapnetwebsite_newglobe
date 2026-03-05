@@ -235,8 +235,82 @@ import { gsap } from "gsap";
 import main_navbar from "../../../components/miannavbar/main_navbar.vue";
 import mainfooter from "../../../components/footer/mainfooter/secondfooter.vue";
 
-const API_BASE = "http://localhost:3000";
-const NEWS_API = `${API_BASE}/api/news`;
+// -------------------- Env-only API base (Vite) --------------------
+// Required in .env:
+//   VITE_API_BASE_URL=http://localhost:3000
+function resolveEnvBaseUrl() {
+  // IMPORTANT: Use direct access so Vite injects import.meta.env correctly.
+  const raw = String(import.meta.env.VITE_API_BASE_URL || "").trim();
+  return raw.replace(/\/+$/, "");
+}
+
+function normalizeBaseUrl(u) {
+  return String(u || "").trim().replace(/\/+$/, "");
+}
+
+function joinBaseAndPath(baseUrl, path) {
+  const b = normalizeBaseUrl(baseUrl);
+  const p = String(path || "");
+
+  if (!b) return p;
+
+  // Prevent double "/api"
+  // - If base ends with "/api" and path starts with "/api/..." => drop one
+  if (b.endsWith("/api") && /^\/api(\/|$)/i.test(p)) {
+    return b + p.replace(/^\/api/i, "");
+  }
+
+  if (!p) return b;
+  if (p.startsWith("/")) return b + p;
+  return b + "/" + p;
+}
+
+function isLoopbackHost(hostname) {
+  const h = String(hostname || "").toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0";
+}
+
+function isLikelyAssetPath(pathname) {
+  const p = String(pathname || "");
+  return (
+    /^\/(uploads|upload|images|files|static)\b/i.test(p) ||
+    p.includes("/uploads/") ||
+    p.includes("/images/") ||
+    p.includes("/files/")
+  );
+}
+
+const API_BASE = normalizeBaseUrl(resolveEnvBaseUrl());
+const ASSET_BASE = API_BASE.endsWith("/api") ? API_BASE.slice(0, -4) : API_BASE;
+const NEWS_API = joinBaseAndPath(API_BASE, "/api/news");
+const ASSET_BASE_URL = (() => {
+  try {
+    return ASSET_BASE ? new URL(ASSET_BASE) : null;
+  } catch {
+    return null;
+  }
+})();
+
+function rewriteBadAbsoluteToEnvBase(absoluteUrl) {
+  try {
+    const u = new URL(absoluteUrl);
+    const fullPath = `${u.pathname || ""}${u.search || ""}`;
+
+    // Rewrite when backend returns localhost (wrong outside local machine)
+    if (isLoopbackHost(u.hostname)) {
+      return ASSET_BASE ? joinBaseAndPath(ASSET_BASE, fullPath) : absoluteUrl;
+    }
+
+    // Rewrite when it looks like an asset path but host does not match our env asset base
+    if (ASSET_BASE_URL && isLikelyAssetPath(u.pathname) && u.hostname !== ASSET_BASE_URL.hostname) {
+      return joinBaseAndPath(ASSET_BASE, fullPath);
+    }
+
+    return absoluteUrl;
+  } catch {
+    return absoluteUrl;
+  }
+}
 
 export default {
   name: "BlogDetail",
@@ -273,7 +347,7 @@ export default {
 
       aborter: null,
 
-      // ✅ FIX: keep timeline to kill safely
+      // Keep timeline to kill safely
       introTl: null
     };
   },
@@ -333,12 +407,10 @@ export default {
   },
 
   watch: {
-    // ✅ FIX: when id changes, wait DOM ready + avoid gsap crash
     postId() {
       this.scrollToTop();
       this.closeLightbox();
 
-      // if posts not loaded yet, fetch again (safe)
       if (!this.posts.length) {
         this.fetchNews();
         return;
@@ -397,11 +469,9 @@ export default {
     } catch {}
   },
 
-  // Vue 2 route update hook
   beforeRouteUpdate(to, from, next) {
     next();
 
-    // ✅ FIX: close lightbox + run after DOM updated
     this.closeLightbox();
     this.scrollToTop();
 
@@ -416,10 +486,18 @@ export default {
       this.error = null;
 
       try {
+        if (!API_BASE) {
+          throw new Error("Missing VITE_API_BASE_URL in .env");
+        }
+
         if (this.aborter) this.aborter.abort();
         this.aborter = new AbortController();
 
-        const res = await fetch(NEWS_API, { method: "GET", signal: this.aborter.signal });
+        const res = await fetch(NEWS_API, {
+          method: "GET",
+          signal: this.aborter.signal,
+          headers: { Accept: "application/json" }
+        });
         if (!res.ok) throw new Error(`API error: ${res.status}`);
 
         const json = await res.json();
@@ -442,7 +520,7 @@ export default {
         const msg = e?.message || "Failed to load news from API.";
         this.error =
           msg.includes("Failed to fetch") || msg.includes("NetworkError")
-            ? `Failed to fetch. ถ้าเปิดจากมือถือ/เครื่องอื่น ให้เปลี่ยน API_BASE จาก localhost เป็น IP เครื่อง backend และเช็ค CORS ด้วย`
+            ? "Failed to fetch. กรุณาเช็ค VITE_API_BASE_URL ใน .env, restart dev server และตรวจสอบ CORS/Network"
             : msg;
       } finally {
         this.isLoading = false;
@@ -546,9 +624,15 @@ export default {
       if (!url) return "";
       const s = String(url).trim();
       if (!s) return "";
-      if (/^https?:\/\//i.test(s)) return s;
-      if (s.startsWith("/")) return `${API_BASE}${s}`;
-      return `${API_BASE}/${s}`;
+
+      // Absolute URL
+      if (/^https?:\/\//i.test(s)) return rewriteBadAbsoluteToEnvBase(s);
+
+      // Absolute path from server => use ASSET_BASE (no /api)
+      if (s.startsWith("/")) return joinBaseAndPath(ASSET_BASE, s);
+
+      // Relative path => use ASSET_BASE
+      return joinBaseAndPath(ASSET_BASE, "/" + s);
     },
 
     safeTime(dt) {
@@ -599,14 +683,10 @@ export default {
       else if (this.$router) this.$router.push({ name: "BlogGrid" });
     },
 
-    // ✅ FIX: safe wrappers (no crash => no white screen)
     animateIntroSafe() {
       try {
         this.animateIntro();
-      } catch (e) {
-        // silently ignore gsap timing errors
-        // (prevents white screen)
-      }
+      } catch {}
     },
     animateLatestSafe() {
       try {
@@ -615,10 +695,8 @@ export default {
     },
 
     animateIntro() {
-      // ✅ FIX: guard refs
       if (!this.$refs.detailMain || !this.$refs.detailSidebar) return;
 
-      // ✅ FIX: kill previous timeline
       if (this.introTl) this.introTl.kill();
       gsap.killTweensOf(".detail-header");
 
@@ -859,7 +937,6 @@ export default {
   }
 };
 </script>
-
 
 <style scoped>
 /* your original styles, plus lightbox */

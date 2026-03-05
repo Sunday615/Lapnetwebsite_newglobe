@@ -96,8 +96,8 @@ const orgLayout = ref(null)
 const PAN_DISTANCE = 90
 
 // ✅ API
-const API_URL = 'http://localhost:3000/api/boarddirector'
-const BASE_URL = 'http://localhost:3000'
+const API_URL = 'http://175.0.198.10:3000/api/boarddirector'
+const BASE_URL = 'http://175.0.198.10:3000'
 
 // ✅ Row mapping
 const ROW1_API_ID = 20

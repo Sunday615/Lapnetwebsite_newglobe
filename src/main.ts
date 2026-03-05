@@ -10,6 +10,8 @@ import 'aos/dist/aos.css' // Import AOS CSS
 createApp(App).use(router).mount('#app');
 AOS.init();
 
+console.log("[env] VITE_API_BASE_URL =", import.meta.env.VITE_API_BASE_URL);
+
 App.use(gsap)
 
 
