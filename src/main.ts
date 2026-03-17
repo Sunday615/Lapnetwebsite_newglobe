@@ -1,17 +1,41 @@
-
-import { createApp } from 'vue';
-
-import router from './router';
+import { createApp } from "vue";
 import { gsap } from "gsap";
-import App from './App.vue';
-import './mainstyle.css'
-import AOS from 'aos'
-import 'aos/dist/aos.css' // Import AOS CSS
-createApp(App).use(router).mount('#app');
-AOS.init();
+import AOS from "aos";
 
-console.log("[env] VITE_API_BASE_URL =", import.meta.env.VITE_API_BASE_URL);
+import App from "./App.vue";
+import router from "./router";
 
-App.use(gsap)
+import "./mainstyle.css";
+import "aos/dist/aos.css";
 
+const app = createApp(App);
 
+app.provide("gsap", gsap);
+app.use(router);
+
+let aosReady = false;
+
+router.afterEach(() => {
+  if (!aosReady) return;
+
+  requestAnimationFrame(() => {
+    AOS.refreshHard();
+  });
+});
+
+router.isReady().then(() => {
+  app.mount("#app");
+
+  AOS.init({
+    once: true,
+    duration: 700,
+    easing: "ease-out-cubic",
+    mirror: false,
+  });
+
+  aosReady = true;
+
+  if (import.meta.env.DEV) {
+    console.log("[env] VITE_API_BASE_URL =", import.meta.env.VITE_API_BASE_URL);
+  }
+});
