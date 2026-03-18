@@ -9,30 +9,30 @@
 
     <!-- Dev-friendly CSP -->
     <meta
-  http-equiv="Content-Security-Policy"
-  content="
-    default-src 'self';
-    base-uri 'self';
-    object-src 'none';
-    form-action 'self';
-    script-src 'self';
-    style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
-    img-src 'self' data: blob: https: http://localhost:3000 http://127.0.0.1:3000;
-    font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com;
-    connect-src 'self'
-      http://localhost:3000
-      http://127.0.0.1:3000
-      ws://localhost:3000
-      ws://127.0.0.1:3000
-      http://localhost:51734
-      http://127.0.0.1:51734
-      ws://localhost:51734
-      ws://127.0.0.1:51734
-      https:
-      wss:;
-    manifest-src 'self';
-  "
-/>
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        base-uri 'self';
+        object-src 'none';
+        form-action 'self';
+        script-src 'self';
+        style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+        img-src 'self' data: blob: https: http://localhost:3000 http://127.0.0.1:3000;
+        font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com;
+        connect-src 'self'
+          http://localhost:3000
+          http://127.0.0.1:3000
+          ws://localhost:3000
+          ws://127.0.0.1:3000
+          http://localhost:5173
+          http://127.0.0.1:5173
+          ws://localhost:5173
+          ws://127.0.0.1:5173
+          https:
+          wss:;
+        manifest-src 'self';
+      "
+    />
 
     <title>LAPNet</title>
 
@@ -48,6 +48,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
+    <!-- Google Fonts -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+Lao:wght@100..900&display=swap"
+    />
+
+    <!-- Font Awesome -->
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
@@ -56,6 +63,7 @@
       referrerpolicy="no-referrer"
     />
 
+    <!-- Remix Icon -->
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.css"
