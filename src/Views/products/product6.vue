@@ -164,7 +164,14 @@ onMounted(() => {
 const route = useRoute();
 const videoBox = ref<HTMLElement | null>(null);
 
-const pair = computed(() => (route.params.pair as string) || "kh-la");
+const pair = computed(() => {
+  const currentPair = (route.params.pair as string) || "kh-la";
+
+  if (currentPair === "cn-la") return "ch-la";
+  if (currentPair === "la-cn") return "la-ch";
+
+  return currentPair;
+});
 
 const currentVideoComponent = computed(() => {
   switch (pair.value) {
@@ -179,11 +186,11 @@ const currentVideoComponent = computed(() => {
     case "vn-la":
     case "la-vn":
       return vdoproductcrossborderVN_LA;
-    case "cn-la":
-    case "la-cn":
+    case "ch-la":
+    case "la-ch":
       return vdoproductcrossborderCN_LA;
     default:
-      return vdoproductcrossborderCN_LA;
+      return vdoproductcrossborderKH_LA;
   }
 });
 
