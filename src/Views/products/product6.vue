@@ -33,9 +33,9 @@ type MemberLogo = {
 
 type TimelineStep = {
   id: string;
-  tag: string;
   title: string;
   text: string;
+  icon: string;
   side: "left" | "right";
 };
 
@@ -88,46 +88,40 @@ let timelineContext: gsap.Context | null = null;
 const crossBorderTimeline: TimelineStep[] = [
   {
     id: "01",
-    tag: "ເລີ່ມຕົ້ນ",
-    title: "ເປີດໃຊ້ Mobile Banking ກັບທະນາຄານສະມາຊິກ",
-    text: "ລູກຄ້າເລີ່ມຕົ້ນຈາກການເປີດໃຊ້ Mobile Banking ແລະ ກວດສອບໃຫ້ບັນຊີພ້ອມສຳລັບການຊຳລະຂ້າມແດນ.",
+    title: "ຈຸດປະສົງຫຼັກຂອງໂຄງການຈຸດປະສົງຫຼັກຂອງໂຄງການ",
+    text: "ໂຄງການດັ່ງກ່າວມີຈຸດປະສົງຫຼັກເພື່ອ ສົ່ງເສີມ ແລະ ອຳນວຍຄວາມສະດວກໃຫ້ແກ່ການບໍລິການຮ່ວມກັນພາຍໃນ ແລະ ຕ່າງປະເທດ ໃຫ້ສາມາດດຳເນີນລື່ນໄຫຼ ແລະ ບໍລິການ ລະຫວ່າງ ສປປ ລາວ ແລະ ປະເທດຄູ່ຮ່ວມ, ໂດຍຜ່ານລະບົບທີ່ປອດໄພ, ວ່ອງໄວ, ແລະ ສະດວກສະບາຍ.",
+    icon: "fa-solid fa-link",
     side: "left",
   },
   {
     id: "02",
-    tag: "ເລືອກການຊຳລະ",
-    title: "ເລືອກປະເທດ ແລະ ຮູບແບບ QR ທີ່ຕ້ອງການ",
-    text: "ລະບົບຮອງຮັບການຊຳລະກັບປະເທດທີ່ເຊື່ອມໂຍງ ເພື່ອໃຫ້ຜູ້ໃຊ້ເລືອກ flow ທີ່ກົງກັບປາຍທາງໄດ້ທັນທີ.",
+    title: "ພາບລວມການເຊື່ອມໂຍງການຊຳລະຂ້າມແດນດ້ວຍ QR Code (Cross-border QR Payment)",
+    text: "ບໍລິສັດ ລາວເນເຊີນນໍ ເພເມັ້ນ ເນັດເວີກ ຈຳກັດ (LAPNET) ມີຄວາມມຸ່ງໝັ້ນໃນການພັດທະນາລະບົບເພື່ອເປັນພື້ນຖານໂຄງຮ່າງດ້ານການຊຳ ລະສະສາງ ແລະ ເຊື່ອມໂຍງເຂົ້າກັນບັນດາປະເທດພາກພື້ນ. ໂດຍເລີ່ມຕົ້ນຈາກການຮ່ວມມືກັບບັນດາປະເທດໃກ້ຄຽງເປັນຕົ້ນແມ່ນ: ຣາຊະອານາຈັກ ກຳປູເຈຍ, ຣາຊະອານາຈັກ ໄທ, ສາທາລະນະລັດ ສັງຄົມນິຍົມ ຫວຽດນາມ, ແລະ ສາທານະລັດ ປະຊາຊົນ ຈີນ.",
+    icon: "fa-solid fa-link",
     side: "right",
   },
   {
     id: "03",
-    tag: "Scan",
-    title: "ສະແກນ QR ຂອງຮ້ານຄ້າ ຫຼື ຈຸດຮັບຊຳລະ",
-    text: "ນັກທ່ອງທ່ຽວ ຫຼື ຜູ້ໃຊ້ງານສາມາດສະແກນ QR ໄດ້ໂດຍກົງຜ່ານແອັບຂອງທະນາຄານທີ່ເຂົ້າຮ່ວມ.",
+    title: "ກົນໄກການຊຳລະ",
+    text: "ໂຄງການນີ້ໄດ້ນຳໃຊ້ເທັກໂນໂລຢີ QR Code ທີ່ທັນສະໄໝ.",
+    icon: "fa-solid fa-qrcode",
     side: "left",
   },
   {
     id: "04",
-    tag: "Review",
-    title: "ກວດສອບລາຍການ ແລະ ຢືນຢັນຈຳນວນເງິນ",
-    text: "ແອັບຈະສະແດງຈຳນວນເງິນ, ສະກຸນເງິນ ແລະ ລາຍລະອຽດທີ່ຈຳເປັນ ກ່ອນໃຫ້ລູກຄ້າກົດຢືນຢັນ.",
+    title: "ສຳລັບນັກທ່ອງທຽວ",
+    text: "ນັກທ່ອງທ່ຽວຈາກປະເທດຄູ່ຮ່ວມສາມາດນໍາໃຊ້ Mobile Banking Application ຂອງທະນາຄານທີ່ເຂົ້າຮ່ວມໂຄງການ ເພື່ອສະແກນຈ່າຍຄ່າສິນຄ້າ ແລະ ບໍລິການຢູ່ຮ້ານຄ້າໃນ ສປປ ລາວ (ເຊັ່ນ: ການໃຊ້ແອັບໄທສະແກນ LAO QR ຫຼື ແອັບກຳປູເຈຍ ສະແກນ LAO QR);",
+    icon: "fa-solid fa-list-check",
     side: "right",
   },
   {
     id: "05",
-    tag: "Real-time",
-    title: "ຕັດບັນຊີ ແລະ ສົ່ງຜົນການຊຳລະແບບທັນທີ",
-    text: "ເມື່ອຢືນຢັນການຊຳລະ ລະບົບຈະດຳເນີນທຸລະກຳແບບ real-time ເພື່ອໃຫ້ທັງຜູ້ຊື້ ແລະ ຮ້ານຄ້າຮູ້ສະຖານະທັນທີ.",
+    title: "ສຳລັບຮ້ານຄ້າ",
+    text: "ຮ້ານຄ້າພາຍໃນ ສປປ ລາວ ສາມາດຮັບການຊຳລະຈາກຕ່າງປະເທດໄດ້ ໂດຍຈະໄດ້ຮັບເງິນເປັນເງິນສະກຸນທ້ອງຖິ່ນ (ເງິນ ກີບ) ເຂົ້າບັນຊີຂອງຕົນໂດຍກົງ, ໂດຍລະບົບຈະມີການຄິດໄລ່ການແລກປ່ຽນເງິນຕາແບບອັດຕະໂນມັດຕາມອັດຕາ ແລກປ່ຽນທີ່ໄດ້ກຳນົດໄວ້ໃນເວລາເຮັດທຸລະກຳ.",
+    icon: "fa-solid fa-bolt",
     side: "left",
   },
-  {
-    id: "06",
-    tag: "Success",
-    title: "ຮ້ານຄ້າຮັບເງິນສຳເລັດ ແລະ ປິດການຊຳລະ",
-    text: "ຫຼັງຈາກການຊຳລະສຳເລັດ ຮ້ານຄ້າຈະໄດ້ຮັບການແຈ້ງຢືນຢັນ ແລະ ລູກຄ້າສາມາດດຳເນີນການຊື້ຂາຍຕໍ່ໄດ້ຢ່າງລື່ນໄຫຼ.",
-    side: "right",
-  },
+
 ];
 
 const ASSET_BASE_URL = (() => {
@@ -215,56 +209,69 @@ onMounted(() => {
   fetchMemberLogos();
 
   timelineContext = gsap.context(() => {
-    gsap.from(".process-kicker, .process-title, .process-copy", {
-      opacity: 0,
-      y: 30,
-      duration: 0.9,
-      ease: "power3.out",
-      stagger: 0.12,
-    });
-
-    gsap.from(".process-stat", {
+    gsap.from(".process-eyebrow, .process-title, .process-copy", {
       opacity: 0,
       y: 24,
-      duration: 0.8,
+      duration: 0.85,
       ease: "power3.out",
-      stagger: 0.08,
-      delay: 0.15,
+      stagger: 0.1,
     });
 
-    gsap.to(".process-orb--one", {
-      x: 24,
-      y: -20,
-      duration: 7,
-      repeat: -1,
-      yoyo: true,
-      ease: "sine.inOut",
-    });
-
-    gsap.to(".process-orb--two", {
-      x: -22,
-      y: 18,
-      duration: 8,
-      repeat: -1,
-      yoyo: true,
-      ease: "sine.inOut",
-    });
-
+    const timelineRoot = timelineSection.value?.querySelector<HTMLElement>(".process-timeline");
     const lineRail = timelineSection.value?.querySelector<HTMLElement>(".process-line");
     const lineFill = timelineSection.value?.querySelector<HTMLElement>(".process-line-fill");
     const lineGlow = timelineSection.value?.querySelector<HTMLElement>(".process-line-glow");
 
-    if (lineRail && lineFill && lineGlow) {
+    const syncLineGeometry = () => {
+      if (!timelineRoot || !lineRail || !lineFill || !lineGlow) return 0;
+
+      const nodes = gsap.utils.toArray<HTMLElement>(".process-node");
+      const firstNode = nodes[0];
+      const lastNode = nodes[nodes.length - 1];
+
+      if (!firstNode || !lastNode) return 0;
+
+      const timelineRect = timelineRoot.getBoundingClientRect();
+      const firstRect = firstNode.getBoundingClientRect();
+      const lastRect = lastNode.getBoundingClientRect();
+
+      const start = firstRect.top - timelineRect.top + firstRect.height / 2;
+      const end = lastRect.top - timelineRect.top + lastRect.height / 2;
+      const travel = Math.max(end - start, 1);
+
+      gsap.set(lineRail, {
+        top: start,
+        height: travel,
+        bottom: "auto",
+      });
+
+      gsap.set(lineFill, {
+        scaleY: 0,
+        transformOrigin: "top center",
+      });
+
+      gsap.set(lineGlow, {
+        y: 0,
+      });
+
+      return travel;
+    };
+
+    if (timelineRoot && lineRail && lineFill && lineGlow) {
+      syncLineGeometry();
+
       gsap.set(lineFill, { scaleY: 0, transformOrigin: "top center" });
-      gsap.set(lineGlow, { y: 0 });
 
       gsap.timeline({
         scrollTrigger: {
-          trigger: ".process-timeline",
+          trigger: timelineRoot,
           start: "top 72%",
-          end: "bottom 20%",
+          end: "bottom bottom",
           scrub: 0.45,
           invalidateOnRefresh: true,
+          onRefresh: () => {
+            syncLineGeometry();
+          },
         },
       })
         .to(
@@ -286,50 +293,36 @@ onMounted(() => {
     }
 
     gsap.to(".process-line-glow", {
-      scale: 1.08,
-      boxShadow: "0 0 0 10px rgba(49, 61, 255, 0.12), 0 0 28px rgba(49, 61, 255, 0.48)",
-      duration: 1.5,
+      scale: 1.06,
+      boxShadow: "0 0 0 9px rgba(49, 61, 255, 0.1), 0 0 22px rgba(49, 61, 255, 0.42)",
+      duration: 1.35,
       repeat: -1,
       yoyo: true,
       ease: "sine.inOut",
     });
 
-    gsap.to(".process-node-halo", {
-      scale: 1.22,
-      opacity: 0.26,
-      duration: 1.6,
+    gsap.to(".process-node-ring", {
+      scale: 1.12,
+      opacity: 0.55,
+      duration: 1.45,
       repeat: -1,
       yoyo: true,
       ease: "sine.inOut",
       stagger: 0.15,
     });
 
-    gsap.utils.toArray<HTMLElement>(".process-item").forEach((item) => {
+    gsap.utils.toArray<HTMLElement>(".process-row").forEach((item) => {
       const isLeft = item.classList.contains("is-left");
       const card = item.querySelector(".process-card");
-      const node = item.querySelector(".process-node-shell");
+      const node = item.querySelector(".process-node");
 
       if (card) {
         gsap.from(card, {
           opacity: 0,
-          y: 54,
-          x: isLeft ? 64 : -64,
-          duration: 0.95,
+          y: 42,
+          x: isLeft ? 48 : -48,
+          duration: 0.82,
           ease: "power3.out",
-          scrollTrigger: {
-            trigger: item,
-            start: "top 82%",
-            toggleActions: "play none none reverse",
-          },
-        });
-      }
-
-      if (node) {
-        gsap.from(node, {
-          opacity: 0,
-          scale: 0.4,
-          duration: 0.55,
-          ease: "back.out(1.8)",
           scrollTrigger: {
             trigger: item,
             start: "top 84%",
@@ -338,9 +331,23 @@ onMounted(() => {
         });
       }
 
+      if (node) {
+        gsap.from(node, {
+          opacity: 0,
+          scale: 0.5,
+          duration: 0.48,
+          ease: "back.out(1.8)",
+          scrollTrigger: {
+            trigger: item,
+            start: "top 86%",
+            toggleActions: "play none none reverse",
+          },
+        });
+      }
+
       ScrollTrigger.create({
         trigger: item,
-        start: "top 60%",
+        start: "top 58%",
         end: "bottom 42%",
         toggleClass: {
           targets: item,
@@ -428,42 +435,21 @@ watch(
   </div>
 
   <section ref="timelineSection" class="process-showcase">
-    <div class="process-orb process-orb--one"></div>
-    <div class="process-orb process-orb--two"></div>
-
     <div class="process-shell">
       <div class="process-header">
-        <div class="process-copywrap">
-          <span class="process-kicker">Cross-Border Journey</span>
-          <h2 class="process-title">
-            ຂັ້ນຕອນການຊຳລະຂ້າມແດນ
-            <span>ຜ່ານ QR Code</span>
-          </h2>
-          <p class="process-copy">
-            timeline ນີ້ສະແດງ flow ການໃຊ້ງານແບບເຂົ້າໃຈງ່າຍ ຕັ້ງແຕ່ເລີ່ມເປີດໃຊ້ບໍລິການ
-            ຈົນໄປຮອດການຊຳລະສຳເລັດແບບ real-time.
-          </p>
-        </div>
-
-        <div class="process-stats">
-          <article class="process-stat">
-            <strong>04</strong>
-            <span>ປະເທດທີ່ເຊື່ອມໂຍງ</span>
-          </article>
-          <article class="process-stat">
-            <strong>Scan</strong>
-            <span>ຊຳລະດ້ວຍ QR ໄດ້ທັນທີ</span>
-          </article>
-          <article class="process-stat">
-            <strong>Real-time</strong>
-            <span>ຮູ້ຜົນການຊຳລະໄວ</span>
-          </article>
-        </div>
+        <span class="process-eyebrow">How It Works</span>
+        <h2 class="process-title">
+          ຂັ້ນຕອນການຊຳລະ
+          <span>ຂ້າມແດນຜ່ານ QR Code</span>
+        </h2>
+        <p class="process-copy">
+          ປັດຈຸບັນ LAPNet ໄດ້ຮ່ວມໂຄງການກັບ 4 ປະເທດຄື: ປະເທດກຳປູເຈຍ, ປະເທດໄທ, ປະເທດຈີນ ແລະ ປະເທດຫວຽດນາມ.
+        </p>
       </div>
 
       <div class="process-timeline">
         <div class="process-line">
-          <div class="process-line-base"></div>
+          <div class="process-line-track"></div>
           <div class="process-line-fill"></div>
           <div class="process-line-glow"></div>
         </div>
@@ -471,24 +457,30 @@ watch(
         <div
           v-for="item in crossBorderTimeline"
           :key="item.id"
-          class="process-item"
+          class="process-row"
           :class="item.side === 'left' ? 'is-left' : 'is-right'"
         >
-          <div class="process-card-shell">
-            <article class="process-card">
-              <div class="process-card-top">
-                <span class="process-step">{{ item.id }}</span>
-                <span class="process-tag">{{ item.tag }}</span>
-              </div>
-
+          <div class="process-side process-side--left">
+            <article v-if="item.side === 'left'" class="process-card">
+              <span class="process-step">{{ item.id }}</span>
               <h3 class="process-card-title">{{ item.title }}</h3>
               <p class="process-card-text">{{ item.text }}</p>
             </article>
           </div>
 
-          <div class="process-node-shell">
-            <span class="process-node-halo"></span>
-            <span class="process-node"></span>
+          <div class="process-node-column">
+            <span class="process-node-ring"></span>
+            <span class="process-node">
+              <i :class="item.icon"></i>
+            </span>
+          </div>
+
+          <div class="process-side process-side--right">
+            <article v-if="item.side === 'right'" class="process-card">
+              <span class="process-step">{{ item.id }}</span>
+              <h3 class="process-card-title">{{ item.title }}</h3>
+              <p class="process-card-text">{{ item.text }}</p>
+            </article>
           </div>
         </div>
       </div>
@@ -527,130 +519,71 @@ watch(
 </template>
 
 <style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500;600&display=swap");
+
 .process-showcase {
   position: relative;
   overflow: hidden;
-  padding: clamp(5rem, 8vw, 7.5rem) 0;
+  padding: clamp(5rem, 7vw, 6.75rem) 0;
   background:
-    radial-gradient(circle at 15% 20%, rgba(49, 61, 255, 0.12), transparent 32%),
-    radial-gradient(circle at 88% 82%, rgba(0, 166, 255, 0.12), transparent 30%),
-    linear-gradient(180deg, #f7f9ff 0%, #eef3ff 45%, #ffffff 100%);
-}
-
-.process-orb {
-  position: absolute;
-  border-radius: 999px;
-  pointer-events: none;
-  filter: blur(18px);
-  opacity: 0.75;
-}
-
-.process-orb--one {
-  width: 260px;
-  height: 260px;
-  top: 6%;
-  right: -4%;
-  background: radial-gradient(circle, rgba(49, 61, 255, 0.18), rgba(49, 61, 255, 0));
-}
-
-.process-orb--two {
-  width: 220px;
-  height: 220px;
-  bottom: 10%;
-  left: -3%;
-  background: radial-gradient(circle, rgba(0, 166, 255, 0.18), rgba(0, 166, 255, 0));
+    radial-gradient(circle at 20% 16%, rgba(190, 194, 255, 0.2), transparent 34%),
+    radial-gradient(circle at 86% 78%, rgba(224, 232, 250, 0.55), transparent 26%),
+    linear-gradient(180deg, #f7f9fb 0%, #f7f9fb 62%, #ffffff 100%);
 }
 
 .process-shell {
   position: relative;
   z-index: 1;
-  max-width: 1180px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 0 24px;
 }
 
 .process-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-  gap: 32px;
-  align-items: end;
-  margin-bottom: clamp(3rem, 5vw, 5rem);
+  max-width: 760px;
+  margin: 0 auto clamp(3.5rem, 6vw, 5.5rem);
+  text-align: center;
 }
 
-.process-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-  font-size: 0.82rem;
+.process-eyebrow {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-family: "Inter", sans-serif;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: #2447d6;
-}
-
-.process-kicker::before {
-  content: "";
-  width: 42px;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(36, 71, 214, 0.25), rgba(36, 71, 214, 1));
+  color: #313dff;
 }
 
 .process-title {
   margin: 0;
-  font-size: clamp(2.2rem, 4vw, 4rem);
-  line-height: 1.05;
-  letter-spacing: -0.03em;
-  color: #0f172a;
+   font-family: "Inter", sans-serif;
+  font-size: clamp(2.25rem, 4vw, 4.1rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  color: #191c1e;
 }
 
 .process-title span {
-  display: block;
+  color: #000abc;
   background: linear-gradient(135deg, #000ba6 0%, #001cff 45%, #00a6ff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .process-copy {
-  max-width: 720px;
-  margin: 18px 0 0;
-  font-size: 1.04rem;
-  line-height: 1.9;
-  color: #475569;
-}
-
-.process-stats {
-  display: grid;
-  gap: 14px;
-}
-
-.process-stat {
-  padding: 20px 22px;
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(197, 196, 219, 0.28);
-  box-shadow: 0 22px 48px rgba(19, 27, 46, 0.08);
-  backdrop-filter: blur(14px);
-}
-
-.process-stat strong {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: #091b8d;
-}
-
-.process-stat span {
-  display: block;
-  font-size: 0.96rem;
-  line-height: 1.6;
-  color: #516176;
+  max-width: 560px;
+  margin: 18px auto 0;
+  font-family: "Inter", sans-serif;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #6d7387;
 }
 
 .process-timeline {
   position: relative;
-  padding: 10px 0;
+  padding: 4px 0 0;
 }
 
 .process-line {
@@ -658,147 +591,145 @@ watch(
   top: 0;
   bottom: 0;
   left: 50%;
-  width: 6px;
+  width: 4px;
   transform: translateX(-50%);
 }
 
-.process-line-base,
+.process-line-track,
 .process-line-fill {
   position: absolute;
   inset: 0;
   border-radius: 999px;
 }
 
-.process-line-base {
-  background: linear-gradient(180deg, rgba(196, 205, 225, 0.26), rgba(196, 205, 225, 0.65), rgba(196, 205, 225, 0.18));
+.process-line-track {
+  background: linear-gradient(180deg, rgba(224, 227, 229, 1), rgba(224, 227, 229, 0.78));
 }
 
 .process-line-fill {
-  background: linear-gradient(180deg, #0f33ff 0%, #3b5dff 45%, #2fd0ff 100%);
-  box-shadow: 0 0 28px rgba(49, 61, 255, 0.28);
+  background: linear-gradient(180deg, #000ba6 0%, #0011ff 100%);
+  box-shadow: 0 0 18px rgba(0, 17, 255, 0.2);
 }
 
 .process-line-glow {
   position: absolute;
   left: 50%;
   top: 0;
-  width: 26px;
-  height: 26px;
+  width: 18px;
+  height: 18px;
   border-radius: 999px;
   transform: translateX(-50%);
   background:
-    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.4) 36%, rgba(49, 61, 255, 0.9) 60%, rgba(49, 61, 255, 0.12) 100%);
-  box-shadow: 0 0 0 8px rgba(49, 61, 255, 0.08), 0 0 22px rgba(49, 61, 255, 0.34);
+    radial-gradient(circle at 32% 32%, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.32) 42%, rgba(0, 17, 255, 0.92) 70%, rgba(0, 17, 255, 0.08) 100%);
+  box-shadow: 0 0 0 6px rgba(0, 17, 255, 0.08), 0 0 16px rgba(0, 17, 255, 0.26);
 }
 
-.process-item {
+.process-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 74px minmax(0, 1fr);
   align-items: center;
-  min-height: 178px;
-  margin: 26px 0;
+  margin: 0 0 2.3rem;
 }
 
-.process-item.is-left .process-card-shell {
-  grid-column: 1;
-  justify-self: end;
-  padding-right: 30px;
+.process-side {
+  display: flex;
 }
 
-.process-item.is-right .process-card-shell {
-  grid-column: 3;
-  justify-self: start;
-  padding-left: 30px;
+.process-side--left {
+  justify-content: flex-end;
+  padding-right: 24px;
 }
 
-.process-node-shell {
+.process-side--right {
+  justify-content: flex-start;
+  padding-left: 24px;
+}
+
+.process-node-column {
   position: relative;
-  grid-column: 2;
-  justify-self: center;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100%;
 }
 
-.process-node-halo,
+.process-node-ring,
 .process-node {
   position: absolute;
   border-radius: 999px;
 }
 
-.process-node-halo {
-  inset: -4px;
-  border: 1px solid rgba(49, 61, 255, 0.24);
-  background: rgba(49, 61, 255, 0.08);
+.process-node-ring {
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(0, 17, 255, 0.18);
+  background: rgba(0, 17, 255, 0.04);
+  opacity: 0.4;
 }
 
 .process-node {
-  width: 16px;
-  height: 16px;
-  background: radial-gradient(circle at 30% 30%, #ffffff, #3b5dff 58%, #001cff 100%);
-  box-shadow: 0 0 0 6px rgba(49, 61, 255, 0.12), 0 0 22px rgba(49, 61, 255, 0.3);
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: #000abc;
+  font-size: 0.9rem;
+  background: #e6e8ea;
+  box-shadow: 0 8px 22px rgba(19, 27, 46, 0.08);
+  transition: background 0.28s ease, color 0.28s ease, box-shadow 0.28s ease, transform 0.28s ease;
 }
 
 .process-card {
-  width: min(100%, 420px);
-  padding: 28px;
-  border-radius: 32px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 255, 0.9) 100%);
-  border: 1px solid rgba(197, 196, 219, 0.25);
-  box-shadow: 0 28px 60px rgba(19, 27, 46, 0.1);
-  backdrop-filter: blur(16px);
-  transition: transform 0.35s ease, box-shadow 0.35s ease, background 0.35s ease;
-}
-
-.process-item.is-active .process-card {
-  transform: translateY(-8px);
-  box-shadow: 0 34px 70px rgba(19, 27, 46, 0.14);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(242, 246, 255, 0.94) 100%);
-}
-
-.process-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
+  width: min(100%, 348px);
+  min-height: 150px;
+  padding: 24px 24px 22px;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid rgba(197, 196, 219, 0.15);
+  box-shadow: 0 26px 55px rgba(19, 27, 46, 0.06);
+  transition: transform 0.32s ease, box-shadow 0.32s ease;
 }
 
 .process-step {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-family: "Manrope", "Inter", sans-serif;
   font-size: 2.4rem;
   font-weight: 800;
-  line-height: 1;
+  line-height: 0.95;
   letter-spacing: -0.05em;
-  color: rgba(59, 93, 255, 0.34);
-}
-
-.process-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #1736be;
-  background: rgba(49, 61, 255, 0.08);
+  color: rgba(0, 17, 255, 0.22);
 }
 
 .process-card-title {
   margin: 0;
-  font-size: 1.28rem;
-  line-height: 1.45;
-  color: #121a2d;
+  font-family: "Inter", sans-serif;
+  font-size: 1.08rem;
+  line-height: 1.42;
+  font-weight: 600;
+  color: #191c1e;
 }
 
 .process-card-text {
-  margin: 12px 0 0;
-  font-size: 0.98rem;
-  line-height: 1.82;
-  color: #526277;
+  margin: 10px 0 0;
+  font-family: "Inter", sans-serif;
+  font-size: 0.92rem;
+  line-height: 1.72;
+  color: #767b8b;
+}
+
+.process-row.is-active .process-card {
+  transform: translateY(-4px);
+  box-shadow: 0 32px 62px rgba(19, 27, 46, 0.08);
+}
+
+.process-row.is-active .process-node {
+  color: #ffffff;
+  background: linear-gradient(135deg, #000ba6 0%, #0011ff 100%);
+  box-shadow: 0 0 0 8px rgba(0, 17, 255, 0.08), 0 16px 34px rgba(0, 17, 255, 0.22);
+  transform: scale(1.04);
 }
 
 .footermember {
@@ -896,72 +827,86 @@ watch(
 }
 
 @media (max-width: 980px) {
-  .process-header {
-    grid-template-columns: 1fr;
-  }
-
   .process-shell {
     padding: 0 22px;
   }
 
   .process-line {
-    left: 18px;
+    left: 20px;
     transform: none;
   }
 
-  .process-item {
-    grid-template-columns: 36px minmax(0, 1fr);
+  .process-row {
+    grid-template-columns: 40px minmax(0, 1fr);
     gap: 18px;
-    min-height: 0;
-    margin: 22px 0;
+    margin-bottom: 1.8rem;
   }
 
-  .process-item.is-left .process-card-shell,
-  .process-item.is-right .process-card-shell {
+  .process-side--left,
+  .process-side--right {
     grid-column: 2;
-    justify-self: stretch;
+    justify-content: flex-start;
     padding: 0;
   }
 
-  .process-node-shell {
+  .process-side--left:empty,
+  .process-side--right:empty {
+    display: none;
+  }
+
+  .process-node-column {
     grid-column: 1;
+    align-items: flex-start;
+    padding-top: 18px;
+  }
+
+  .process-row.is-left .process-side--left,
+  .process-row.is-right .process-side--right {
+    grid-column: 2;
   }
 
   .process-card {
     width: 100%;
+    min-height: 0;
   }
 }
 
 @media (max-width: 640px) {
   .process-showcase {
-    padding: 4.5rem 0;
+    padding: 4.25rem 0;
   }
 
   .process-title {
-    font-size: 2rem;
+    font-size: 1.95rem;
   }
 
   .process-copy {
-    font-size: 0.96rem;
-    line-height: 1.75;
+    font-size: 0.94rem;
+    line-height: 1.72;
   }
 
   .process-card {
-    padding: 22px 20px;
+    padding: 22px 18px 20px;
     border-radius: 24px;
   }
 
   .process-card-title {
-    font-size: 1.12rem;
+    font-size: 1rem;
   }
 
   .process-card-text {
-    font-size: 0.94rem;
-    line-height: 1.7;
+    font-size: 0.9rem;
+    line-height: 1.66;
   }
 
   .process-step {
-    font-size: 2rem;
+    font-size: 2.05rem;
+  }
+
+  .process-node {
+    width: 36px;
+    height: 36px;
+    font-size: 0.82rem;
   }
 }
 </style>
