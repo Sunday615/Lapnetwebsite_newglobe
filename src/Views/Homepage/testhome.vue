@@ -79,12 +79,111 @@
 .herosectionhomepage {
   width: 100%;
   height: auto;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 14% 18%, rgba(67, 124, 255, 0.22), transparent 0 34%),
+    radial-gradient(circle at 82% 12%, rgba(76, 214, 255, 0.14), transparent 0 28%),
+    radial-gradient(circle at 50% 88%, rgba(18, 75, 194, 0.28), transparent 0 42%),
+    linear-gradient(135deg, #020712 0%, #061121 28%, #0b1f43 62%, #041325 100%);
+  border-bottom: 1px solid rgba(126, 186, 255, 0.12);
+  box-shadow: inset 0 -80px 120px rgba(2, 8, 22, 0.82);
+}
+
+.herosectionhomepage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(176, 220, 255, 0.08) 0%, transparent 18%),
+    repeating-linear-gradient(90deg, rgba(86, 152, 255, 0.04) 0 1px, transparent 1px 120px),
+    repeating-linear-gradient(180deg, rgba(86, 152, 255, 0.035) 0 1px, transparent 1px 120px);
+  opacity: 0.42;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.58) 66%, transparent);
+}
+
+.herosectionhomepage::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: min(220px, 24vw);
+  background: linear-gradient(180deg, rgba(2, 8, 22, 0), rgba(2, 8, 22, 0.9));
+  pointer-events: none;
+  z-index: 0;
+}
+
+.herosectionhomepage :deep(.page) {
+  background:
+    radial-gradient(1100px 680px at 62% 48%, rgba(31, 100, 255, 0.18), transparent 60%),
+    radial-gradient(720px 420px at 76% 18%, rgba(76, 214, 255, 0.12), transparent 52%),
+    linear-gradient(145deg, rgba(2, 7, 20, 0.74), rgba(3, 14, 34, 0.18)) !important;
+}
+
+.herosectionhomepage :deep(.topbar),
+.herosectionhomepage :deep(.nav),
+.herosectionhomepage :deep(.badge),
+.herosectionhomepage :deep(.btn),
+.herosectionhomepage :deep(.iconLink),
+.herosectionhomepage :deep(.hamburger) {
+  border-color: rgba(126, 186, 255, 0.14);
+  background: rgba(6, 17, 44, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(214, 235, 255, 0.06),
+    0 18px 40px rgba(2, 12, 34, 0.28);
+}
+
+.herosectionhomepage :deep(.heroTitle) {
+  text-shadow: 0 0 34px rgba(35, 102, 255, 0.16);
+}
+
+.herosectionhomepage :deep(.ai) {
+  background: linear-gradient(135deg, #9be4ff 0%, #74b6ff 36%, #4b7fff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 38px rgba(68, 138, 255, 0.28);
+}
+
+.herosectionhomepage :deep(.heroPara) {
+  color: rgba(222, 236, 255, 0.76);
+}
+
+.herosectionhomepage :deep(.mockupSlot) {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.herosectionhomepage :deep(.mockupFill),
+.herosectionhomepage :deep(.globeWrap) {
+  position: relative;
+  z-index: 1;
+}
+
+.herosectionhomepage :deep(.globeWrap) {
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.herosectionhomepage :deep(.globeCanvas) {
+  filter:
+    saturate(1.08)
+    contrast(1.05)
+    brightness(0.96)
+    drop-shadow(0 0 26px rgba(43, 109, 255, 0.26))
+    drop-shadow(0 0 82px rgba(76, 214, 255, 0.1));
 }
 
 .globemockup {
   width: 100%;
   height: auto;
-  background-color: #000;
+  background:
+    linear-gradient(145deg, #020712 0%, #081a3a 55%, #041325 100%);
 }
 
 .bloghomepage {
@@ -114,6 +213,20 @@
 .vision {
   max-width: 100%;
   height: auto;
+}
+
+@media (max-width: 980px) {
+  .herosectionhomepage {
+    background:
+      radial-gradient(circle at 50% 12%, rgba(76, 214, 255, 0.12), transparent 0 28%),
+      radial-gradient(circle at 50% 78%, rgba(31, 100, 255, 0.2), transparent 0 40%),
+      linear-gradient(180deg, #020712 0%, #08152f 52%, #041325 100%);
+  }
+
+  .herosectionhomepage :deep(.mockupSlot) {
+    border-radius: 0;
+    box-shadow: none;
+  }
 }
 
 /* =========================

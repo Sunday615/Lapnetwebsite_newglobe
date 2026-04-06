@@ -151,10 +151,10 @@ const props = withDefaults(
     outboundStaggerSeconds: 0.1,
     batchPauseSeconds: 0.35,
 
-    flowTrailCount: 7,
+    flowTrailCount: 2,
     flowTrailSpacing: 0.06,
-    activeLineOpacity: 0.9,
-    baseLineOpacity: 0.28,
+    activeLineOpacity: 0.96,
+    baseLineOpacity: 0.18,
 
     nodePinScale: 0.14,
     hubPinScale: 0.40,
@@ -462,8 +462,9 @@ const disposers: Array<() => void> = [];
 const CFG = {
   radius: 1.22,
   dots: lowPower ? 1600 : 4200,
-  dotColor: "#C4B5FD",
-  arcColor: "#A78BFA",
+  dotColor: "#67B7FF",
+  arcColor: "#2D7FFF",
+  arcPalette: ["#2D7FFF", "#4F9DFF", "#6AD6FF", "#3B82F6"],
 };
 
 function clamp(x: number, a: number, b: number) {
@@ -821,12 +822,65 @@ function makeHubMarker(
   return group;
 }
 
+function makeRouteBeamMaterial(color: THREE.Color, accent: THREE.Color, direction: 1 | -1) {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uTime: { value: 0 },
+      uProgress: { value: 0 },
+      uFade: { value: 0 },
+      uWindow: { value: lowPower ? 0.62 : 0.74 },
+      uDirection: { value: direction },
+      uColor: { value: color },
+      uAccent: { value: accent },
+    },
+    vertexShader: `
+      precision mediump float;
+      varying vec2 vUv;
+
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      precision mediump float;
+      uniform float uTime;
+      uniform float uProgress;
+      uniform float uFade;
+      uniform float uWindow;
+      uniform float uDirection;
+      uniform vec3 uColor;
+      uniform vec3 uAccent;
+      varying vec2 vUv;
+
+      void main() {
+        float coord = uDirection > 0.0 ? vUv.x : 1.0 - vUv.x;
+        float body = smoothstep(uProgress - uWindow, uProgress - uWindow * 0.42, coord)
+          * (1.0 - smoothstep(uProgress - 0.018, uProgress + 0.022, coord));
+        float tail = smoothstep(uProgress - uWindow * 1.08, uProgress - uWindow * 0.9, coord)
+          * (1.0 - smoothstep(uProgress - uWindow * 0.16, uProgress + 0.02, coord));
+        float lane = 1.0 - smoothstep(0.18, 0.5, abs(vUv.y - 0.5));
+        float shimmer = 0.92 + 0.08 * sin(coord * 42.0 - uTime * 8.0);
+        float alpha = max(body, tail * 0.26) * lane * shimmer * uFade;
+        vec3 finalColor = mix(uColor, uAccent, smoothstep(0.55, 1.0, body));
+        gl_FragColor = vec4(finalColor, alpha);
+      }
+    `,
+  });
+}
+
 function makeHubRoute(
   hubPos: THREE.Vector3,
   nodePos: THREE.Vector3,
-  circleTex: THREE.Texture,
   color: string
 ) {
+  const coreColor = new THREE.Color(color);
+  const glowColor = coreColor.clone().lerp(new THREE.Color("#7FE7FF"), 0.42);
+  const edgeColor = coreColor.clone().lerp(new THREE.Color("#EAF7FF"), 0.32);
+
   const a = hubPos.clone().normalize();
   const b = nodePos.clone().normalize();
   const axis = new THREE.Vector3().crossVectors(a, b).normalize();
@@ -844,140 +898,113 @@ function makeHubRoute(
   }
 
   const curve = new THREE.CatmullRomCurve3(pts);
-  const ptsFwd = curve.getPoints(lowPower ? 140 : 260);
-  const ptsRev = [...ptsFwd].reverse();
-
+  const ptsFwd = curve.getPoints(lowPower ? 100 : 180);
   const baseGeom = new THREE.BufferGeometry().setFromPoints(ptsFwd);
   const baseMat = new THREE.LineDashedMaterial({
-    color: new THREE.Color(color),
+    color: coreColor.clone().lerp(new THREE.Color("#93DCFF"), 0.5),
     transparent: true,
-    opacity: props.baseLineOpacity!,
-    dashSize: 0.10,
-    gapSize: 0.06,
+    opacity: props.baseLineOpacity! * 0.82,
+    dashSize: lowPower ? 0.09 : 0.07,
+    gapSize: lowPower ? 0.065 : 0.05,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
   });
   const baseLine = new THREE.Line(baseGeom, baseMat);
   baseLine.computeLineDistances();
 
-  const outGeom = new THREE.BufferGeometry().setFromPoints(ptsFwd);
-  outGeom.setDrawRange(0, 2);
-  const outMat = new THREE.LineBasicMaterial({
-    color: new THREE.Color(color),
+  const baseGlowMat = new THREE.LineBasicMaterial({
+    color: glowColor.clone().lerp(new THREE.Color("#DDF6FF"), 0.18),
     transparent: true,
-    opacity: 0,
-    blending: THREE.NormalBlending,
+    opacity: props.baseLineOpacity! * 0.18,
+    blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  const outLine = new THREE.Line(outGeom, outMat);
+  const baseGlowLine = new THREE.Line(baseGeom, baseGlowMat);
 
-  const inGeom = new THREE.BufferGeometry().setFromPoints(ptsRev);
-  inGeom.setDrawRange(0, 2);
-  const inMat = new THREE.LineBasicMaterial({
-    color: new THREE.Color(color),
-    transparent: true,
-    opacity: 0,
-    blending: THREE.NormalBlending,
-    depthWrite: false,
-  });
-  const inLine = new THREE.Line(inGeom, inMat);
-
-  const trailCount = Math.max(
-    2,
-    lowPower ? Math.min(3, props.flowTrailCount ?? 7) : (props.flowTrailCount ?? 7)
+  const glowTubeGeom = new THREE.TubeGeometry(
+    curve,
+    lowPower ? 54 : 84,
+    lowPower ? 0.0078 : 0.0095,
+    lowPower ? 4 : 5,
+    false
   );
-  const spacing = clamp(props.flowTrailSpacing ?? 0.06, 0.01, lowPower ? 0.12 : 0.2);
+  const coreTubeGeom = new THREE.TubeGeometry(
+    curve,
+    lowPower ? 72 : 120,
+    lowPower ? 0.0036 : 0.0044,
+    lowPower ? 5 : 7,
+    false
+  );
 
-  type TrailDot = { spr: THREE.Sprite; mat: THREE.SpriteMaterial; offset: number; base: number };
-  const makeTrail = () => {
-    const dots: TrailDot[] = [];
-    for (let i = 0; i < trailCount; i++) {
-      const isHead = i === 0;
-      const mat = new THREE.SpriteMaterial({
-        map: circleTex,
-        color: new THREE.Color(color),
-        transparent: true,
-        opacity: 0,
-        blending: THREE.NormalBlending,
-        depthWrite: false,
-        alphaTest: 0.15,
-      });
-
-      const spr = new THREE.Sprite(mat);
-      const base = isHead ? 0.10 : 0.075;
-      spr.scale.set(base, base, 1);
-      dots.push({ spr, mat, offset: i * spacing, base });
-    }
-    const group = new THREE.Group();
-    dots.forEach((d) => group.add(d.spr));
-    return { dots, group };
-  };
-
-  const outTrail = makeTrail();
-  const inTrail = makeTrail();
-
-  const updateTrail = (dots: TrailDot[], curvePts: THREE.Vector3[], u: number, fade: number) => {
-    for (let i = 0; i < dots.length; i++) {
-      const d = dots[i]!;
-      const uu = u - d.offset;
-      if (uu <= 0) {
-        d.mat.opacity = 0;
-        continue;
-      }
-
-      const idx = Math.floor(clamp(uu, 0, 1) * (curvePts.length - 1));
-      d.spr.position.copy(curvePts[idx]!);
-
-      const decay = 1 - i / dots.length;
-      d.mat.opacity = (i === 0 ? 0.95 : 0.55 * decay) * fade;
-
-      const s =
-        i === 0 ? d.base * (1 + 0.08 * Math.sin(u * 12.0)) : d.base * (0.95 + 0.12 * decay);
-      d.spr.scale.set(s, s, 1);
-    }
-  };
+  const outGlowMat = makeRouteBeamMaterial(glowColor.clone(), edgeColor.clone(), 1);
+  const inGlowMat = makeRouteBeamMaterial(glowColor.clone(), edgeColor.clone(), -1);
+  const outBeamMat = makeRouteBeamMaterial(edgeColor.clone(), new THREE.Color("#FFFFFF"), 1);
+  const inBeamMat = makeRouteBeamMaterial(edgeColor.clone(), new THREE.Color("#FFFFFF"), -1);
+  const outGlowUniforms: any = outGlowMat.uniforms;
+  const inGlowUniforms: any = inGlowMat.uniforms;
+  const outUniforms: any = outBeamMat.uniforms;
+  const inUniforms: any = inBeamMat.uniforms;
+  const outGlow = new THREE.Mesh(glowTubeGeom, outGlowMat);
+  const inGlow = new THREE.Mesh(glowTubeGeom, inGlowMat);
+  const outBeam = new THREE.Mesh(coreTubeGeom, outBeamMat);
+  const inBeam = new THREE.Mesh(coreTubeGeom, inBeamMat);
+  const outDots = new THREE.Group();
+  const inDots = new THREE.Group();
 
   const update = (t: number, phaseIn: boolean, u: number) => {
-    (baseMat as any).dashOffset = -t * 0.25;
-
     const fade = smoothstep(0.02, 0.10, u) * (1.0 - smoothstep(0.92, 0.995, u));
-
-    const totalFwd = ptsFwd.length;
-    const totalRev = ptsRev.length;
+    const shimmer = 0.84 + 0.16 * (0.5 + 0.5 * Math.sin(t * 3.4));
+    baseMat.opacity = props.baseLineOpacity! * 0.82 * shimmer;
+    baseGlowMat.opacity = props.baseLineOpacity! * 0.18 * shimmer;
+    outGlowUniforms.uTime.value = t;
+    inGlowUniforms.uTime.value = t;
+    outUniforms.uTime.value = t;
+    inUniforms.uTime.value = t;
 
     if (phaseIn) {
-      outMat.opacity = 0;
-      inMat.opacity = props.activeLineOpacity! * fade;
-
-      const k = Math.max(2, Math.floor(u * (totalRev - 1)));
-      inGeom.setDrawRange(0, k);
-      outGeom.setDrawRange(0, 2);
-
-      updateTrail(inTrail.dots, ptsRev, u, fade);
-      updateTrail(outTrail.dots, ptsFwd, 0, 0);
+      outGlowUniforms.uFade.value = 0;
+      outGlowUniforms.uProgress.value = 0;
+      outUniforms.uFade.value = 0;
+      outUniforms.uProgress.value = 0;
+      inGlowUniforms.uFade.value = props.activeLineOpacity! * 0.48 * fade;
+      inGlowUniforms.uProgress.value = u;
+      inUniforms.uFade.value = props.activeLineOpacity! * fade;
+      inUniforms.uProgress.value = u;
     } else {
-      inMat.opacity = 0;
-      outMat.opacity = props.activeLineOpacity! * fade;
-
-      const k = Math.max(2, Math.floor(u * (totalFwd - 1)));
-      outGeom.setDrawRange(0, k);
-      inGeom.setDrawRange(0, 2);
-
-      updateTrail(outTrail.dots, ptsFwd, u, fade);
-      updateTrail(inTrail.dots, ptsRev, 0, 0);
+      inGlowUniforms.uFade.value = 0;
+      inGlowUniforms.uProgress.value = 0;
+      inUniforms.uFade.value = 0;
+      inUniforms.uProgress.value = 0;
+      outGlowUniforms.uFade.value = props.activeLineOpacity! * 0.48 * fade;
+      outGlowUniforms.uProgress.value = u;
+      outUniforms.uFade.value = props.activeLineOpacity! * fade;
+      outUniforms.uProgress.value = u;
     }
   };
 
   disposers.push(() => {
     baseGeom.dispose();
     baseMat.dispose();
-    outGeom.dispose();
-    outMat.dispose();
-    inGeom.dispose();
-    inMat.dispose();
-    outTrail.dots.forEach((d) => d.mat.dispose());
-    inTrail.dots.forEach((d) => d.mat.dispose());
+    baseGlowMat.dispose();
+    glowTubeGeom.dispose();
+    coreTubeGeom.dispose();
+    outGlowMat.dispose();
+    inGlowMat.dispose();
+    outBeamMat.dispose();
+    inBeamMat.dispose();
   });
 
-  return { baseLine, outLine, inLine, outDots: outTrail.group, inDots: inTrail.group, update };
+  return {
+    baseGlowLine,
+    baseLine,
+    outGlow,
+    outBeam,
+    inGlow,
+    inBeam,
+    outDots,
+    inDots,
+    update,
+  };
 }
 
 // scheduler types
@@ -1135,12 +1162,21 @@ const loader = new THREE.TextureLoader();
         );
 
     const nodeN = nodePos.clone().normalize();
-    const color = i % 2 === 0 ? CFG.arcColor : "#9CA3AF";
+    const color = CFG.arcPalette[i % CFG.arcPalette.length] ?? CFG.arcColor;
 
     routesGroup.add(makeLogoPin(nodePos, nodeN, texMap.get(node.logo), props.nodePinScale!, 0.07, 1));
 
-    const route = makeHubRoute(hubVec, nodePos, circleTex, color);
-    routesGroup.add(route.baseLine, route.outLine, route.inLine, route.outDots, route.inDots);
+    const route = makeHubRoute(hubVec, nodePos, color);
+    routesGroup.add(
+      route.baseGlowLine,
+      route.baseLine,
+      route.outGlow,
+      route.outBeam,
+      route.inGlow,
+      route.inBeam,
+      route.outDots,
+      route.inDots
+    );
     routes.push(route);
   }
 
@@ -1415,8 +1451,8 @@ onBeforeUnmount(() => {
   height: 100%;
   position: relative;
   background: transparent;
-  border-radius: inherit;
-  overflow: hidden;
+  border-radius: 0;
+  overflow: visible;
 }
 
 .globeCanvas {

@@ -855,14 +855,14 @@ onBeforeUnmount(() => {
   justify-content: center;
 
   height: 720px;
-  border-radius: 26px;
+  border-radius: 0;
 
   opacity: 0;
   transform: translateY(22px) scale(0.98);
   will-change: transform, opacity;
 
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* ✅ render smaller on mobile via inline style, then scale up */
