@@ -44,11 +44,7 @@
                                     style="display:flex; align-items: center;"
                                 >
                                     ຜະລິດຕະພັນຂອງ • LAPNet
-                                    <img
-                                        style="width: 20px; height:20px ; margin-left: 5px;"
-                                        src="/logolapnet/fullcircle.png"
-                                        alt=""
-                                    />
+                                  
                                 </span>
                             </div>
                         </div>
