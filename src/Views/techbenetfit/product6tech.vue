@@ -851,6 +851,7 @@ onBeforeUnmount(() => {
 #chip img{
   width: 22px;
   margin-left: 4px;
+  object-fit: contain;
 }
 
 .logocontainer img {
