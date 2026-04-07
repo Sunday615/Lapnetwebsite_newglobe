@@ -90,14 +90,14 @@ const crossBorderTimeline: TimelineStep[] = [
     id: "01",
     title: "ຈຸດປະສົງຫຼັກຂອງໂຄງການຈຸດປະສົງຫຼັກຂອງໂຄງການ",
     text: "ໂຄງການດັ່ງກ່າວມີຈຸດປະສົງຫຼັກເພື່ອ ສົ່ງເສີມ ແລະ ອຳນວຍຄວາມສະດວກໃຫ້ແກ່ການບໍລິການຮ່ວມກັນພາຍໃນ ແລະ ຕ່າງປະເທດ ໃຫ້ສາມາດດຳເນີນລື່ນໄຫຼ ແລະ ບໍລິການ ລະຫວ່າງ ສປປ ລາວ ແລະ ປະເທດຄູ່ຮ່ວມ, ໂດຍຜ່ານລະບົບທີ່ປອດໄພ, ວ່ອງໄວ, ແລະ ສະດວກສະບາຍ.",
-    icon: "fa-solid fa-link",
+    icon: "fa-solid fa-bullseye",
     side: "left",
   },
   {
     id: "02",
     title: "ພາບລວມການເຊື່ອມໂຍງການຊຳລະຂ້າມແດນດ້ວຍ QR Code (Cross-border QR Payment)",
     text: "ບໍລິສັດ ລາວເນເຊີນນໍ ເພເມັ້ນ ເນັດເວີກ ຈຳກັດ (LAPNET) ມີຄວາມມຸ່ງໝັ້ນໃນການພັດທະນາລະບົບເພື່ອເປັນພື້ນຖານໂຄງຮ່າງດ້ານການຊຳ ລະສະສາງ ແລະ ເຊື່ອມໂຍງເຂົ້າກັນບັນດາປະເທດພາກພື້ນ. ໂດຍເລີ່ມຕົ້ນຈາກການຮ່ວມມືກັບບັນດາປະເທດໃກ້ຄຽງເປັນຕົ້ນແມ່ນ: ຣາຊະອານາຈັກ ກຳປູເຈຍ, ຣາຊະອານາຈັກ ໄທ, ສາທາລະນະລັດ ສັງຄົມນິຍົມ ຫວຽດນາມ, ແລະ ສາທານະລັດ ປະຊາຊົນ ຈີນ.",
-    icon: "fa-solid fa-link",
+    icon: "fa-solid fa-image",
     side: "right",
   },
   {
@@ -111,16 +111,19 @@ const crossBorderTimeline: TimelineStep[] = [
     id: "04",
     title: "ສຳລັບນັກທ່ອງທຽວ",
     text: "ນັກທ່ອງທ່ຽວຈາກປະເທດຄູ່ຮ່ວມສາມາດນໍາໃຊ້ Mobile Banking Application ຂອງທະນາຄານທີ່ເຂົ້າຮ່ວມໂຄງການ ເພື່ອສະແກນຈ່າຍຄ່າສິນຄ້າ ແລະ ບໍລິການຢູ່ຮ້ານຄ້າໃນ ສປປ ລາວ (ເຊັ່ນ: ການໃຊ້ແອັບໄທສະແກນ LAO QR ຫຼື ແອັບກຳປູເຈຍ ສະແກນ LAO QR);",
-    icon: "fa-solid fa-list-check",
+    icon: "fa-brands fa-avianex",
     side: "right",
   },
+  
   {
     id: "05",
     title: "ສຳລັບຮ້ານຄ້າ",
     text: "ຮ້ານຄ້າພາຍໃນ ສປປ ລາວ ສາມາດຮັບການຊຳລະຈາກຕ່າງປະເທດໄດ້ ໂດຍຈະໄດ້ຮັບເງິນເປັນເງິນສະກຸນທ້ອງຖິ່ນ (ເງິນ ກີບ) ເຂົ້າບັນຊີຂອງຕົນໂດຍກົງ, ໂດຍລະບົບຈະມີການຄິດໄລ່ການແລກປ່ຽນເງິນຕາແບບອັດຕະໂນມັດຕາມອັດຕາ ແລກປ່ຽນທີ່ໄດ້ກຳນົດໄວ້ໃນເວລາເຮັດທຸລະກຳ.",
-    icon: "fa-solid fa-bolt",
+    icon: "fa-solid fa-store",
     side: "left",
   },
+
+
 
 ];
 
@@ -212,18 +215,21 @@ onMounted(() => {
     gsap.from(".process-eyebrow, .process-title, .process-copy", {
       opacity: 0,
       y: 24,
-      duration: 0.85,
-      ease: "power3.out",
+      duration: 0.9,
+      ease: "power2.out",
       stagger: 0.1,
     });
 
     const timelineRoot = timelineSection.value?.querySelector<HTMLElement>(".process-timeline");
     const lineRail = timelineSection.value?.querySelector<HTMLElement>(".process-line");
     const lineFill = timelineSection.value?.querySelector<HTMLElement>(".process-line-fill");
-    const lineGlow = timelineSection.value?.querySelector<HTMLElement>(".process-line-glow");
+    const rows = gsap.utils.toArray<HTMLElement>(".process-row");
+    const firstRow = rows[0];
+    const lastRow = rows[rows.length - 1];
+    let animateLineFill: ((value: number) => gsap.core.Tween) | null = null;
 
     const syncLineGeometry = () => {
-      if (!timelineRoot || !lineRail || !lineFill || !lineGlow) return 0;
+      if (!timelineRoot || !lineRail || !lineFill) return 0;
 
       const nodes = gsap.utils.toArray<HTMLElement>(".process-node");
       const firstNode = nodes[0];
@@ -250,105 +256,109 @@ onMounted(() => {
         transformOrigin: "top center",
       });
 
-      gsap.set(lineGlow, {
-        y: 0,
-      });
-
       return travel;
     };
 
-    if (timelineRoot && lineRail && lineFill && lineGlow) {
+    const setLineProgress = (progress: number, immediate = false) => {
+      if (!lineRail || !lineFill) return;
+
+      const clamped = gsap.utils.clamp(0, 1, progress);
+
+      if (immediate || !animateLineFill) {
+        gsap.set(lineFill, {
+          scaleY: clamped,
+          transformOrigin: "top center",
+        });
+        return;
+      }
+
+      animateLineFill(clamped);
+    };
+
+    if (timelineRoot && lineRail && lineFill) {
       syncLineGeometry();
 
-      gsap.set(lineFill, { scaleY: 0, transformOrigin: "top center" });
+      gsap.set(".process-card, .process-node, .process-line-fill", {
+        force3D: true,
+      });
+      gsap.set(lineFill, { transformOrigin: "top center" });
+      animateLineFill = gsap.quickTo(lineFill, "scaleY", {
+        duration: 0.22,
+        ease: "power3.out",
+      });
+      setLineProgress(0, true);
 
-      gsap.timeline({
-        scrollTrigger: {
-          trigger: timelineRoot,
-          start: "top 72%",
-          end: "bottom bottom",
-          scrub: 0.45,
-          invalidateOnRefresh: true,
-          onRefresh: () => {
-            syncLineGeometry();
-          },
+      ScrollTrigger.create({
+        trigger: firstRow || timelineRoot,
+        endTrigger: lastRow || timelineRoot,
+        start: "top 90%",
+        end: "bottom 24%",
+        invalidateOnRefresh: true,
+        onRefreshInit: () => {
+          syncLineGeometry();
         },
-      })
-        .to(
-          lineFill,
-          {
-            scaleY: 1,
-            ease: "none",
-          },
-          0
-        )
-        .to(
-          lineGlow,
-          {
-            y: () => Math.max(lineRail.offsetHeight - lineGlow.offsetHeight, 0),
-            ease: "none",
-          },
-          0
-        );
+        onRefresh: (self) => {
+          syncLineGeometry();
+          setLineProgress(self.progress, true);
+        },
+        onUpdate: (self) => {
+          setLineProgress(self.progress);
+        },
+      });
     }
 
-    gsap.to(".process-line-glow", {
-      scale: 1.06,
-      boxShadow: "0 0 0 9px rgba(49, 61, 255, 0.1), 0 0 22px rgba(49, 61, 255, 0.42)",
-      duration: 1.35,
-      repeat: -1,
-      yoyo: true,
-      ease: "sine.inOut",
-    });
-
     gsap.to(".process-node-ring", {
-      scale: 1.12,
-      opacity: 0.55,
-      duration: 1.45,
+      scale: 1.08,
+      opacity: 0.42,
+      duration: 1.8,
       repeat: -1,
       yoyo: true,
       ease: "sine.inOut",
       stagger: 0.15,
     });
 
-    gsap.utils.toArray<HTMLElement>(".process-row").forEach((item) => {
+    rows.forEach((item) => {
       const isLeft = item.classList.contains("is-left");
       const card = item.querySelector(".process-card");
       const node = item.querySelector(".process-node");
 
       if (card) {
         gsap.from(card, {
-          opacity: 0,
-          y: 42,
-          x: isLeft ? 48 : -48,
-          duration: 0.82,
-          ease: "power3.out",
+          autoAlpha: 0,
+          y: 52,
+          x: isLeft ? 42 : -42,
+          duration: 0.95,
+          ease: "power2.out",
+          clearProps: "transform,opacity,visibility",
           scrollTrigger: {
             trigger: item,
-            start: "top 84%",
-            toggleActions: "play none none reverse",
+            start: "top 88%",
+            once: true,
+            toggleActions: "play none none none",
           },
         });
       }
 
       if (node) {
         gsap.from(node, {
-          opacity: 0,
+          autoAlpha: 0,
           scale: 0.5,
-          duration: 0.48,
+          duration: 0.62,
           ease: "back.out(1.8)",
+          clearProps: "transform,opacity,visibility",
           scrollTrigger: {
             trigger: item,
-            start: "top 86%",
-            toggleActions: "play none none reverse",
+            start: "top 90%",
+            once: true,
+            toggleActions: "play none none none",
           },
         });
       }
 
       ScrollTrigger.create({
         trigger: item,
-        start: "top 58%",
-        end: "bottom 42%",
+        start: "top 64%",
+        end: "bottom 40%",
         toggleClass: {
           targets: item,
           className: "is-active",
@@ -451,7 +461,6 @@ watch(
         <div class="process-line">
           <div class="process-line-track"></div>
           <div class="process-line-fill"></div>
-          <div class="process-line-glow"></div>
         </div>
 
         <div
@@ -519,36 +528,37 @@ watch(
 </template>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;500;600;700;800&display=swap");
 
 .process-showcase {
   position: relative;
   overflow: hidden;
-  padding: clamp(5rem, 7vw, 6.75rem) 0;
+  padding: clamp(5.75rem, 7vw, 7.6rem) 0;
   background:
-    radial-gradient(circle at 20% 16%, rgba(190, 194, 255, 0.2), transparent 34%),
-    radial-gradient(circle at 86% 78%, rgba(224, 232, 250, 0.55), transparent 26%),
+    radial-gradient(circle at 16% 14%, rgba(190, 194, 255, 0.22), transparent 30%),
+    radial-gradient(circle at 84% 76%, rgba(205, 221, 255, 0.42), transparent 26%),
+    radial-gradient(circle at 50% 100%, rgba(239, 244, 255, 0.75), transparent 40%),
     linear-gradient(180deg, #f7f9fb 0%, #f7f9fb 62%, #ffffff 100%);
+  font-family: "Noto Sans Lao", sans-serif;
 }
 
 .process-shell {
   position: relative;
   z-index: 1;
-  max-width: 1120px;
+  max-width: 1260px;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 30px;
 }
 
 .process-header {
-  max-width: 760px;
-  margin: 0 auto clamp(3.5rem, 6vw, 5.5rem);
+  max-width: 900px;
+  margin: 0 auto clamp(4rem, 6vw, 6.2rem);
   text-align: center;
 }
 
 .process-eyebrow {
   display: inline-block;
   margin-bottom: 12px;
-  font-family: "Inter", sans-serif;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.24em;
@@ -558,11 +568,11 @@ watch(
 
 .process-title {
   margin: 0;
-   font-family: "Inter", sans-serif;
-  font-size: clamp(2.25rem, 4vw, 4.1rem);
-  line-height: 1.08;
+  font-size: clamp(2.55rem, 4.3vw, 4.7rem);
+  line-height: 1.14;
   letter-spacing: -0.04em;
   color: #191c1e;
+  font-weight: 700;
 }
 
 .process-title span {
@@ -573,17 +583,16 @@ watch(
 }
 
 .process-copy {
-  max-width: 560px;
-  margin: 18px auto 0;
-  font-family: "Inter", sans-serif;
-  font-size: 1rem;
-  line-height: 1.75;
+  max-width: 780px;
+  margin: 20px auto 0;
+  font-size: 1.08rem;
+  line-height: 1.86;
   color: #6d7387;
 }
 
 .process-timeline {
   position: relative;
-  padding: 4px 0 0;
+  padding: 10px 0 0;
 }
 
 .process-line {
@@ -591,8 +600,35 @@ watch(
   top: 0;
   bottom: 0;
   left: 50%;
-  width: 4px;
+  width: 6px;
   transform: translateX(-50%);
+  isolation: isolate;
+}
+
+.process-line::before {
+  content: "";
+  position: absolute;
+  inset: -24px -14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(0, 11, 166, 0.12), rgba(0, 166, 255, 0.05));
+  filter: blur(18px);
+  opacity: 0.7;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.process-line::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.06));
+  opacity: 0.78;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .process-line-track,
@@ -603,33 +639,29 @@ watch(
 }
 
 .process-line-track {
-  background: linear-gradient(180deg, rgba(224, 227, 229, 1), rgba(224, 227, 229, 0.78));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.12)) left center / 1px 100% no-repeat,
+    linear-gradient(180deg, rgba(224, 227, 229, 0.95), rgba(224, 227, 229, 0.82));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45),
+    inset 0 10px 14px rgba(255, 255, 255, 0.5);
 }
 
 .process-line-fill {
-  background: linear-gradient(180deg, #000ba6 0%, #0011ff 100%);
-  box-shadow: 0 0 18px rgba(0, 17, 255, 0.2);
-}
-
-.process-line-glow {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  transform: translateX(-50%);
   background:
-    radial-gradient(circle at 32% 32%, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.32) 42%, rgba(0, 17, 255, 0.92) 70%, rgba(0, 17, 255, 0.08) 100%);
-  box-shadow: 0 0 0 6px rgba(0, 17, 255, 0.08), 0 0 16px rgba(0, 17, 255, 0.26);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0)) left center / 1px 100% no-repeat,
+    linear-gradient(180deg, #000ba6 0%, #2143ff 52%, #00a6ff 100%);
+  box-shadow:
+    0 0 26px rgba(0, 17, 255, 0.18),
+    0 0 46px rgba(0, 166, 255, 0.08);
 }
 
 .process-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 74px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 112px minmax(0, 1fr);
   align-items: center;
-  margin: 0 0 2.3rem;
+  margin: 0 0 3.45rem;
 }
 
 .process-side {
@@ -638,12 +670,12 @@ watch(
 
 .process-side--left {
   justify-content: flex-end;
-  padding-right: 24px;
+  padding-right: 36px;
 }
 
 .process-side--right {
   justify-content: flex-start;
-  padding-left: 24px;
+  padding-left: 36px;
 }
 
 .process-node-column {
@@ -661,8 +693,8 @@ watch(
 }
 
 .process-node-ring {
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
   border: 1px solid rgba(0, 17, 255, 0.18);
   background: rgba(0, 17, 255, 0.04);
   opacity: 0.4;
@@ -670,66 +702,99 @@ watch(
 
 .process-node {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   display: grid;
   place-items: center;
   color: #000abc;
-  font-size: 0.9rem;
-  background: #e6e8ea;
-  box-shadow: 0 8px 22px rgba(19, 27, 46, 0.08);
+  font-size: 1.02rem;
+  background: linear-gradient(180deg, #f5f7fa 0%, #dfe4eb 100%);
+  box-shadow: 0 12px 28px rgba(19, 27, 46, 0.09);
   transition: background 0.28s ease, color 0.28s ease, box-shadow 0.28s ease, transform 0.28s ease;
 }
 
 .process-card {
-  width: min(100%, 348px);
-  min-height: 150px;
-  padding: 24px 24px 22px;
-  border-radius: 24px;
-  background: #ffffff;
-  border: 1px solid rgba(197, 196, 219, 0.15);
-  box-shadow: 0 26px 55px rgba(19, 27, 46, 0.06);
-  transition: transform 0.32s ease, box-shadow 0.32s ease;
+  position: relative;
+  width: min(100%, 500px);
+  min-height: 228px;
+  padding: 34px 34px 30px;
+  border-radius: 32px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 248, 255, 0.94) 100%);
+  border: 1px solid rgba(197, 196, 219, 0.12);
+  box-shadow:
+    0 20px 46px rgba(19, 27, 46, 0.06),
+    0 36px 78px rgba(19, 27, 46, 0.05);
+  transition: transform 0.36s ease, box-shadow 0.36s ease, border-color 0.36s ease;
+}
+
+.process-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 6px;
+  background: linear-gradient(90deg, rgba(0, 11, 166, 0.92), rgba(0, 166, 255, 0.72));
+}
+
+.process-card::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  top: 14px;
+  width: 120px;
+  height: 120px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(49, 61, 255, 0.08), rgba(49, 61, 255, 0));
+  pointer-events: none;
 }
 
 .process-step {
   display: inline-block;
-  margin-bottom: 10px;
-  font-family: "Manrope", "Inter", sans-serif;
-  font-size: 2.4rem;
+  margin-bottom: 12px;
+  font-size: 3rem;
   font-weight: 800;
   line-height: 0.95;
   letter-spacing: -0.05em;
-  color: rgba(0, 17, 255, 0.22);
+  color: rgba(0, 17, 255, 0.18);
 }
 
 .process-card-title {
   margin: 0;
-  font-family: "Inter", sans-serif;
-  font-size: 1.08rem;
-  line-height: 1.42;
-  font-weight: 600;
+  font-size: 1.26rem;
+  line-height: 1.54;
+  font-weight: 700;
   color: #191c1e;
 }
 
 .process-card-text {
-  margin: 10px 0 0;
-  font-family: "Inter", sans-serif;
-  font-size: 0.92rem;
-  line-height: 1.72;
-  color: #767b8b;
+  margin: 14px 0 0;
+  font-size: 1.02rem;
+  line-height: 1.88;
+  color: #697286;
 }
 
 .process-row.is-active .process-card {
-  transform: translateY(-4px);
-  box-shadow: 0 32px 62px rgba(19, 27, 46, 0.08);
+  transform: translateY(-10px);
+  border-color: rgba(0, 17, 255, 0.08);
+  box-shadow:
+    0 28px 56px rgba(19, 27, 46, 0.08),
+    0 40px 86px rgba(0, 17, 255, 0.08);
 }
 
 .process-row.is-active .process-node {
   color: #ffffff;
   background: linear-gradient(135deg, #000ba6 0%, #0011ff 100%);
-  box-shadow: 0 0 0 8px rgba(0, 17, 255, 0.08), 0 16px 34px rgba(0, 17, 255, 0.22);
-  transform: scale(1.04);
+  box-shadow: 0 0 0 10px rgba(0, 17, 255, 0.07), 0 18px 38px rgba(0, 17, 255, 0.22);
+  transform: scale(1.06);
+}
+
+.process-card,
+.process-node,
+.process-line-fill {
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
 .footermember {
@@ -832,14 +897,14 @@ watch(
   }
 
   .process-line {
-    left: 20px;
+    left: 24px;
     transform: none;
   }
 
   .process-row {
-    grid-template-columns: 40px minmax(0, 1fr);
-    gap: 18px;
-    margin-bottom: 1.8rem;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 22px;
+    margin-bottom: 2.2rem;
   }
 
   .process-side--left,
@@ -857,7 +922,7 @@ watch(
   .process-node-column {
     grid-column: 1;
     align-items: flex-start;
-    padding-top: 18px;
+    padding-top: 24px;
   }
 
   .process-row.is-left .process-side--left,
@@ -873,40 +938,41 @@ watch(
 
 @media (max-width: 640px) {
   .process-showcase {
-    padding: 4.25rem 0;
+    padding: 4.8rem 0;
   }
 
   .process-title {
-    font-size: 1.95rem;
+    font-size: 2.1rem;
   }
 
   .process-copy {
-    font-size: 0.94rem;
-    line-height: 1.72;
+    font-size: 0.96rem;
+    line-height: 1.78;
   }
 
   .process-card {
-    padding: 22px 18px 20px;
-    border-radius: 24px;
+    min-height: 0;
+    padding: 28px 22px 24px;
+    border-radius: 26px;
   }
 
   .process-card-title {
-    font-size: 1rem;
+    font-size: 1.08rem;
   }
 
   .process-card-text {
-    font-size: 0.9rem;
-    line-height: 1.66;
+    font-size: 0.95rem;
+    line-height: 1.76;
   }
 
   .process-step {
-    font-size: 2.05rem;
+    font-size: 2.45rem;
   }
 
   .process-node {
-    width: 36px;
-    height: 36px;
-    font-size: 0.82rem;
+    width: 42px;
+    height: 42px;
+    font-size: 0.9rem;
   }
 }
 </style>
