@@ -292,21 +292,21 @@
               ໂດຍອັດຕະໂນມັດ.
             </p>
             <div class="chip-row overlay-chip-row">
-              <div class="chip">
+              <div class="chip" id="chip">
                 KHR
-                <img src="https://flagcdn.com/kh.svg" style="width: 22px; margin-left: 4px" alt="" />
+                <img src="https://flagcdn.com/kh.svg"  alt="" />
               </div>
-              <div class="chip">
+              <div class="chip" id="chip">
                 THB
-                <img src="https://flagcdn.com/th.svg" style="width: 22px; margin-left: 4px" alt="" />
+                <img src="https://flagcdn.com/th.svg"  alt="" />
               </div>
-              <div class="chip">
+              <div class="chip" id="chip">
                 VND
-                <img src="https://flagcdn.com/vn.svg" style="width: 22px; margin-left: 4px" alt="" />
+                <img src="https://flagcdn.com/vn.svg"  alt="" />
               </div>
-              <div class="chip">
+              <div class="chip" id="chip">
                 CNY
-                <img src="https://flagcdn.com/cn.svg" style="width: 22px; margin-left: 4px" alt="" />
+                <img src="https://flagcdn.com/cn.svg"  alt="" />
               </div>
             </div>
           </div>
@@ -848,6 +848,11 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /* (ของเดิมทั้งหมดเหมือนเดิม) */
+#chip img{
+  width: 22px;
+  margin-left: 4px;
+}
+
 .logocontainer img {
   width: 75px;
   height: 50px;

@@ -5,10 +5,7 @@
         <div>
           <div class="kicker">Roadmap</div>
           <h1> <span id="roadmap-title">ຄວາມເປັນມາຂອງ</span> <br>Lao National Payment Network CO., LTD</h1>
-          <p class="sub" style="display:flex; align-items:center;">
-            <img src="/logolapnet/fullcircle.png" alt="" style="width: 30px; height:30px; margin-right: 7px;" />
-            Lao National Payment Network CO., LTD
-          </p>
+         
         </div>
       </header>
 
