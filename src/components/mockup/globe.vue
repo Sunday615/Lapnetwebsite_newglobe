@@ -144,8 +144,8 @@ const props = withDefaults(
 
     inboundSeconds: 3.8,
     outboundSeconds: 3.2,
-    inboundBatchMin: 3,
-    inboundBatchMax: 4,
+    inboundBatchMin: 7,
+    inboundBatchMax: 10,
     inboundStaggerSeconds: 0.18,
     outboundDelaySeconds: 0.1,
     outboundStaggerSeconds: 0.1,
@@ -1218,9 +1218,11 @@ const loader = new THREE.TextureLoader();
     const total = nodes.value.length;
     if (total === 0) return batchStart + 2;
 
-    const minB = clamp(props.inboundBatchMin ?? 3, 1, total);
-    const maxB = clamp(props.inboundBatchMax ?? 4, minB, total);
-    const batchSize = total <= maxB ? total : Math.random() < 0.55 ? minB : maxB;
+    const minB = clamp(props.inboundBatchMin ?? 7, 1, total);
+    const maxB = clamp(props.inboundBatchMax ?? 10, minB, total);
+    const batchSize = total <= maxB
+      ? total
+      : Math.floor(Math.random() * (maxB - minB + 1)) + minB;
 
     const inDur = Math.max(1.6, props.inboundSeconds ?? 3.8);
     const outDur = Math.max(1.4, props.outboundSeconds ?? inDur * 0.85);

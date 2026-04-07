@@ -18,6 +18,13 @@ import { useRoute } from "vue-router";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
+
+
+onMounted(() => {
+  window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  fetchMemberLogos();
+});
+
 gsap.registerPlugin(ScrollTrigger);
 
 /** =========================
@@ -507,6 +514,7 @@ watch(
   },
   { immediate: true }
 );
+
 </script>
 <template>
   <navbar
