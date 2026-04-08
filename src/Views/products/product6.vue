@@ -13,17 +13,10 @@ import vdoproductcrossborderCN_LA from "../../components/videoproductcrossborder
 import hero_sectionproduct6 from "../../Views/products/product_herosection/hero_sectionproduct6.vue";
 import product6_footerlogomember from "../../components/footer/logomemberfooter/product6_footerlogomember.vue";
 
-import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { useRoute } from "vue-router";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-
-
-onMounted(() => {
-  window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
-  fetchMemberLogos();
-});
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -89,12 +82,7 @@ const ASSET_BASE = API_BASE.endsWith("/api") ? API_BASE.slice(0, -4) : API_BASE;
 const MEMBERS_API_URL = joinBaseAndPath(API_BASE, "/api/members");
 
 const memberLogos = ref<MemberLogo[]>([]);
-const heroSection = ref<HTMLElement | null>(null);
-const benefitSection = ref<HTMLElement | null>(null);
 const timelineSection = ref<HTMLElement | null>(null);
-const infoSection = ref<HTMLElement | null>(null);
-const techSection = ref<HTMLElement | null>(null);
-const footerLogoSection = ref<HTMLElement | null>(null);
 let timelineContext: gsap.Context | null = null;
 
 const crossBorderTimeline: TimelineStep[] = [
@@ -219,52 +207,17 @@ const fetchMemberLogos = async () => {
   }
 };
 
-onMounted(async () => {
+onMounted(() => {
   window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
   fetchMemberLogos();
-  await nextTick();
 
   timelineContext = gsap.context(() => {
-    const revealSections = [
-      heroSection.value,
-      benefitSection.value,
-      infoSection.value,
-      techSection.value,
-      footerLogoSection.value,
-    ].filter(Boolean) as HTMLElement[];
-
-    revealSections.forEach((section, index) => {
-      const targets = section.querySelectorAll(":scope > *, .scroll-reveal, .scroll-reveal-stagger > *");
-      if (!targets.length) return;
-
-      gsap.from(targets, {
-        autoAlpha: 0,
-        y: 40,
-        scale: 0.985,
-        duration: 1,
-        stagger: 0.08,
-        ease: "power3.out",
-        clearProps: "transform,opacity,visibility",
-        scrollTrigger: {
-          trigger: section,
-          start: index === 0 ? "top 82%" : "top 88%",
-          once: true,
-          toggleActions: "play none none none",
-        },
-      });
-    });
-
     gsap.from(".process-eyebrow, .process-title, .process-copy", {
       opacity: 0,
       y: 24,
       duration: 0.9,
       ease: "power2.out",
       stagger: 0.1,
-      scrollTrigger: {
-        trigger: timelineSection.value,
-        start: "top 82%",
-        once: true,
-      },
     });
 
     const timelineRoot = timelineSection.value?.querySelector<HTMLElement>(".process-timeline");
@@ -363,40 +316,6 @@ onMounted(async () => {
       ease: "sine.inOut",
       stagger: 0.15,
     });
-    gsap.to(".process-orb--one", {
-      yPercent: -16,
-      xPercent: 8,
-      ease: "none",
-      scrollTrigger: {
-        trigger: timelineSection.value,
-        start: "top bottom",
-        end: "bottom top",
-        scrub: 1.2,
-      },
-    });
-
-    gsap.to(".process-orb--two", {
-      yPercent: 18,
-      xPercent: -10,
-      ease: "none",
-      scrollTrigger: {
-        trigger: timelineSection.value,
-        start: "top bottom",
-        end: "bottom top",
-        scrub: 1.4,
-      },
-    });
-
-    gsap.to(".process-grid", {
-      yPercent: -10,
-      ease: "none",
-      scrollTrigger: {
-        trigger: timelineSection.value,
-        start: "top bottom",
-        end: "bottom top",
-        scrub: 1,
-      },
-    });
 
     rows.forEach((item) => {
       const isLeft = item.classList.contains("is-left");
@@ -494,27 +413,17 @@ const currentVideoComponent = computed(() => {
 
 watch(
   pair,
-  async () => {
-    await nextTick();
+  () => {
     if (!videoBox.value) return;
 
     gsap.fromTo(
       videoBox.value,
-      { opacity: 0, y: 40, scale: 0.96, filter: "blur(8px)" },
-      {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        filter: "blur(0px)",
-        duration: 1.15,
-        ease: "power3.out",
-        clearProps: "transform,filter",
-      }
+      { opacity: 0, y: 40 },
+      { opacity: 1, y: 0, duration: 2.0, ease: "power3.out" }
     );
   },
   { immediate: true }
 );
-
 </script>
 <template>
   <navbar
@@ -527,18 +436,15 @@ watch(
     background-image="/overlaynav/product/navigatorcontent-bg.png"
   />
 
-  <div ref="heroSection" class="productdiscription scroll-reveal-stagger">
+  <div class="productdiscription">
     <hero_sectionproduct6 />
   </div>
 
-  <div ref="benefitSection" class="benetfix scroll-reveal-stagger">
+  <div class="benetfix">
     <product6benetfit />
   </div>
 
   <section ref="timelineSection" class="process-showcase">
-    <div class="process-orb process-orb--one"></div>
-    <div class="process-orb process-orb--two"></div>
-    <div class="process-grid"></div>
     <div class="process-shell">
       <div class="process-header">
         <span class="process-eyebrow">How It Works</span>
@@ -590,7 +496,7 @@ watch(
     </div>
   </section>
 
-  <div ref="infoSection" class="crossborderinfo scroll-reveal-stagger">
+  <div class="crossborderinfo">
     <div class="boxmargin" style="width: 100%; height: 15vh"></div>
 
     <div class="titlecrossborder">
@@ -605,11 +511,11 @@ watch(
     </div>
   </div>
 
-  <div ref="techSection" class="descriptionforcustomer scroll-reveal-stagger">
+  <div class="descriptionforcustomer">
     <product6tech />
   </div>
 
-  <div ref="footerLogoSection" class="footermember scroll-reveal-stagger">
+  <div class="footermember">
     <!-- ✅ ส่ง logos ที่ get จาก API (crossborderproduct=1) -->
     <product6_footerlogomember :subtitle="`  ຊຳລະຂ້າມແດນຜ່ານ QR CODE ບໍລິສັດ LAPNet ໄດ້ຕໍ່ຍອດການພັດທະນາລະບົບຊຳລະຂ້າມທະນາຄານເທິງມືຖື (LMPS) ເພື່ອຂະຫຍາຍຜະລິດຕະພັນ ຊຳລະຂ້າມທະນາຄານ ໃຫ້ສາມາດຮອງຮັບການ ຊຳລະ ຄ່າສິນຄ້າ - ບໍລິການ ລະຫວ່າງປະເທດ`"
       :features="[
@@ -627,7 +533,6 @@ watch(
 .process-showcase {
   position: relative;
   overflow: hidden;
-  isolation: isolate;
   padding: clamp(5.75rem, 7vw, 7.6rem) 0;
   background:
     radial-gradient(circle at 16% 14%, rgba(190, 194, 255, 0.22), transparent 30%),
@@ -635,44 +540,6 @@ watch(
     radial-gradient(circle at 50% 100%, rgba(239, 244, 255, 0.75), transparent 40%),
     linear-gradient(180deg, #f7f9fb 0%, #f7f9fb 62%, #ffffff 100%);
   font-family: "Noto Sans Lao", sans-serif;
-}
-
-
-.process-orb,
-.process-grid {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.process-orb {
-  border-radius: 999px;
-  filter: blur(10px);
-  opacity: 0.6;
-  z-index: 0;
-}
-
-.process-orb--one {
-  inset: 8% auto auto -8%;
-  width: 340px;
-  height: 340px;
-  background: radial-gradient(circle, rgba(86, 128, 255, 0.22) 0%, rgba(86, 128, 255, 0) 68%);
-}
-
-.process-orb--two {
-  inset: auto -10% 6% auto;
-  width: 420px;
-  height: 420px;
-  background: radial-gradient(circle, rgba(0, 166, 255, 0.18) 0%, rgba(0, 166, 255, 0) 70%);
-}
-
-.process-grid {
-  z-index: 0;
-  background-image:
-    linear-gradient(rgba(17, 34, 68, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(17, 34, 68, 0.03) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.75) 20%, rgba(0, 0, 0, 0.75) 80%, transparent 100%);
 }
 
 .process-shell {
@@ -859,7 +726,6 @@ watch(
   box-shadow:
     0 20px 46px rgba(19, 27, 46, 0.06),
     0 36px 78px rgba(19, 27, 46, 0.05);
-  backdrop-filter: blur(18px);
   transition: transform 0.36s ease, box-shadow 0.36s ease, border-color 0.36s ease;
 }
 
@@ -882,11 +748,6 @@ watch(
   border-radius: 999px;
   background: radial-gradient(circle, rgba(49, 61, 255, 0.08), rgba(49, 61, 255, 0));
   pointer-events: none;
-}
-
-.process-card::selection,
-.process-card *::selection {
-  background: rgba(0, 37, 184, 0.14);
 }
 
 .process-step {
@@ -931,21 +792,9 @@ watch(
 
 .process-card,
 .process-node,
-.process-line-fill,
-.videocorssbordershow {
+.process-line-fill {
   will-change: transform, opacity;
   transform: translateZ(0);
-}
-
-.videocorssbordershow {
-  position: relative;
-  overflow: hidden;
-  border-radius: 28px;
-  box-shadow: 0 24px 60px rgba(14, 28, 70, 0.12);
-}
-
-.scroll-reveal-stagger {
-  position: relative;
 }
 
 .footermember {
@@ -1048,20 +897,25 @@ watch(
   }
 
   .process-line {
-    left: 24px;
-    transform: none;
+    left: 50%;
+    transform: translateX(-50%);
   }
 
   .process-row {
-    grid-template-columns: 48px minmax(0, 1fr);
-    gap: 22px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "node"
+      "card";
+    gap: 18px;
+    justify-items: center;
     margin-bottom: 2.2rem;
   }
 
   .process-side--left,
   .process-side--right {
-    grid-column: 2;
-    justify-content: flex-start;
+    grid-area: card;
+    width: 100%;
+    justify-content: center;
     padding: 0;
   }
 
@@ -1071,31 +925,42 @@ watch(
   }
 
   .process-node-column {
-    grid-column: 1;
-    align-items: flex-start;
-    padding-top: 24px;
+    grid-area: node;
+    width: 100%;
+    min-height: 56px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    margin: 0 auto;
+  }
+
+  .process-node-ring,
+  .process-node {
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
   }
 
   .process-row.is-left .process-side--left,
   .process-row.is-right .process-side--right {
-    grid-column: 2;
+    grid-area: card;
   }
 
   .process-card {
-    width: 100%;
+    width: min(100%, 640px);
     min-height: 0;
+    margin: 0 auto;
   }
 
-  .process-orb--one {
-    width: 240px;
-    height: 240px;
-    left: -18%;
+  .process-node {
+    display: grid;
+    place-items: center;
   }
 
-  .process-orb--two {
-    width: 280px;
-    height: 280px;
-    right: -22%;
+  .process-node i {
+    display: inline-grid;
+    place-items: center;
+    line-height: 1;
   }
 }
 
